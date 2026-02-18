@@ -1,0 +1,2316 @@
+gent@nixos:~/jetpack-nixos]$  grep -r "doorbell_token\|ring_doorbell\|ring_channel\|doorbell" /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/ 2>/dev/null | head -30
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/linux-channel.c:       args->work_submit_token = g->ops.usermode.doorbell_token(c);
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu.h: * token is passed back to be written in the doorbell register in the usermode
+
+[agent@nixos:~/jetpack-nixos]$  grep -r "doorbell\|DOORBELL\|ring_channel\|host1x.*notify\|work_submit\|submit_token" /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/ 2>/dev/null | head -30
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.c:               channel_setup_bind_args->work_submit_token =
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.c:                       setup_bind_args.work_submit_token;
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/linux-channel.c:       args->work_submit_token = g->ops.usermode.doorbell_token(c);
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu.h: * token is passed back to be written in the doorbell register in the usermode
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu.h:       __u32 work_submit_token; /* out */
+
+[agent@nixos:~/jetpack-nixos]$  find /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/ -name "*.c" -o -name "*.h" | xargs grep -l "doorbell_token\|usermode_doorbell\|USERMODE_DOORBELL" 2>/dev/null
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/linux-channel.c
+
+[agent@nixos:~/jetpack-nixos]$  find /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/ -name "*.h" | xargs grep -l "ops\.usermode\|usermode_ops\|\.doorbell" 2>/dev/null
+
+[agent@nixos:~/jetpack-nixos]$  find /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/ -name "*.h" | xargs grep -l "doorbell" 2>/dev/null
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu.h
+
+[agent@nixos:~/jetpack-nixos]$  ls /home/agent/jetpack-nixos/examples/tinygrad/terminal-history*.txt
+/home/agent/jetpack-nixos/examples/tinygrad/terminal-history-opus4.6-2.txt
+/home/agent/jetpack-nixos/examples/tinygrad/terminal-history-opus4.6.txt
+
+[agent@nixos:~/jetpack-nixos]$  ls /sys/devices/platform/host1x/ 2>/dev/null | head -20
+
+[agent@nixos:~/jetpack-nixos]$  find /sys -name "*syncpt*" 2>/dev/null | head -10 && find /sys -path "*host1x*" 2>/dev/null | head -10
+/sys/kernel/iommu_groups/17/devices/host1x-ctx.7
+/sys/kernel/iommu_groups/25/devices/host1x-ctx.15
+/sys/kernel/iommu_groups/15/devices/host1x-ctx.5
+/sys/kernel/iommu_groups/23/devices/host1x-ctx.13
+/sys/kernel/iommu_groups/13/devices/host1x-ctx.3
+/sys/kernel/iommu_groups/31/devices/13e00000.host1x:isp-thi@14b00000
+/sys/kernel/iommu_groups/21/devices/host1x-ctx.11
+/sys/kernel/iommu_groups/11/devices/host1x-ctx.1
+/sys/kernel/iommu_groups/18/devices/host1x-ctx.8
+/sys/kernel/iommu_groups/16/devices/host1x-ctx.6
+
+[agent@nixos:~/jetpack-nixos]$  ls /dev/host1x* 2>/dev/null && cat /sys/kernel/debug/host1x/status 2>/dev/null | head -30
+/dev/host1x-fence
+
+[agent@nixos:~/jetpack-nixos]$  cd /home/agent/jetpack-nixos/examples/tinygrad && python3 test_nvgpu.py 2>&1
+bash: python3: command not found
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  which python3 2>/dev/null || which python 2>/dev/null || ls /usr/bin/python* 2>/dev/null || ls /nix/store/*/bin/python3 2>/dev/null | head -3
+/nix/store/0jbrr35bprycrn35mszf2ddnm81slpg7-python3-3.13.11/bin/python3
+/nix/store/1i2j51xzc1m14pk0m4k89y7nsp9csyzg-python3-3.13.11-env/bin/python3
+/nix/store/2w7wxnah7aivf5mrsr1wjx33s5wkmlcb-python3-minimal-3.13.11/bin/python3
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  cd /home/agent/jetpack-nixos/examples/tinygrad && nix develop --command python3 test_nvgpu.py 2>&1
+warning: Git tree '/home/agent/jetpack-nixos' is dirty
+
+=== tinygrad dev shell (Orin AGX / CUDA 12.6) ===
+
+Quick test (CPU):
+  python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+Quick test (CUDA):
+  CUDA=1 python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+LLM examples (clone tinygrad repo first):
+  git clone --depth 1 https://github.com/tinygrad/tinygrad.git
+  cd tinygrad && CUDA=1 python3 examples/gpt2.py --count 20
+
+PYTHONPATH includes /home/agent/jetpack-nixos/examples/tinygrad/tinygrad for the 'extra' module.
+
+============================================================
+Phase 1+2+3: Direct nvgpu/nvmap ioctl test
+Phase 1: GPU access WITHOUT CUDA
+Phase 2: Memory management — mmap, coherence, TegraAllocator
+Phase 3: Command submission — GPFIFO, QMD, compute dispatch
+============================================================
+
+Opened /dev/nvmap → fd=3
+Opened /dev/nvgpu/igpu0/ctrl → fd=4
+
+============================================================
+PHASE 1: GPU Discovery & Channel Setup
+============================================================
+
+=== GET_CHARACTERISTICS ===
+  Architecture:     0x0170 = GA100 (Ampere)
+  Implementation:   0x000b
+  Revision:         161
+  Num GPC:          1
+  NUMA domain:      -1
+  L2 cache size:    4194304 bytes (4096 KB)
+  VRAM size:        0 bytes
+  Num TPC/GPC:      4
+  Bus type:         32
+  Big page size:    0
+  Compr page size:  65536
+  GPU VA bits:      40
+  GPC mask:         0x00000001
+  SM arch version:  0x00000807
+  SM arch SPA ver:  0x00000806
+  SM arch warp cnt: 96
+  Flags:            0x01bf5fff7f5d035d
+  Active flags:     SUPPORT_PARTIAL_MAPPINGS, SUPPORT_SYNC_FENCE_FDS, SUPPORT_CYCLE_STATS, SUPPORT_CYCLE_STATS_SNAPSHOT, SUPPORT_CLOCK_CONTROLS, SUPPORT_GET_CURRENT, SUPPORT_GET_POWER, SUPPORT_FECS_CTXSW_TRACE, SUPPORT_DETERMINISTIC_SUBMIT_NO_JOBTRACKING, SUPPORT_DETERMINISTIC_SUBMIT_FULL, SUPPORT_IO_COHERENCE, SUPPORT_TSG_SUBCONTEXTS, SUPPORT_DETERMINISTIC_OPTS, SUPPORT_SCG, SUPPORT_SYNCPOINT_ADDRESS, SUPPORT_VPR, SUPPORT_USER_SYNCPOINT, CAN_RAILGATE, SUPPORT_USERMODE_SUBMIT, SUPPORT_COMPUTE
+
+  === Classes (critical for compute) ===
+  2D class:         0x902d
+  3D class:         0xc797
+  Compute class:    0xc7c0
+  GPFIFO class:     0xc76f
+  I2M class:        0xa140
+  DMA copy class:   0xc7b5
+
+  === Memory ===
+  Max FBPs:         2
+  FBP en mask:      0x00000003
+  Max LTC/FBP:      1
+  Max LTS/LTC:      4
+  Num LTC:          2
+  Max GPFIFO:       268435456
+  Max freq:         1300000000 Hz (1300 MHz)
+  Chip name:        ga10b
+
+  === IOCTL interface levels ===
+  GPU ioctl last:   44
+  TSG ioctl last:   21
+  Channel last:     128
+  AS ioctl last:    14
+  ✓ GET_CHARACTERISTICS succeeded!
+
+=== ZCULL_GET_CTX_SIZE ===
+  ZCull ctx size:   164352 bytes
+  ✓ ZCULL_GET_CTX_SIZE succeeded!
+
+=== NVMAP GET_AVAILABLE_HEAPS ===
+  Heap bitmask:     0x0000000010000004
+  Available heaps:  CARVEOUT_FSI (1<<2), CARVEOUT_VPR (1<<28)
+  ✓ GET_AVAILABLE_HEAPS succeeded!
+
+=== NVMAP CREATE + ALLOC (4096 bytes) ===
+  Created handle:   2147487077 (0x80000d65)
+  Allocated with heap=IOVMM (0x40000000), alignment=4096
+  Got dmabuf fd:    5
+  ✓ NVMAP CREATE + ALLOC succeeded!
+
+=== ALLOC_AS (create address space) ===
+  AS fd:            6
+  VA range:         0x000000200000 - 0x00ffffe00000
+  ✓ ALLOC_AS succeeded!
+
+=== MAP_BUFFER_EX (map 4096 bytes into GPU VA) ===
+  GPU VA:           0x00ffffa00000
+  ✓ MAP_BUFFER_EX succeeded!
+
+============================================================
+FULL CHANNEL + COMPUTE SETUP
+============================================================
+
+=== OPEN_TSG ===
+  TSG fd:           7
+
+=== CREATE_SUBCONTEXT ===
+  VEID:             1
+
+=== OPEN_CHANNEL ===
+  Channel fd:       8
+
+=== AS BIND_CHANNEL ===
+  Bound channel 8 to AS 6
+
+=== BIND_CHANNEL_EX ===
+  Bound channel 8 to TSG 7
+
+=== CHANNEL WDT (disable) ===
+  Watchdog disabled
+
+=== Allocating GPFIFO + userd buffers ===
+  GPFIFO buffer:    handle=2147487078, dmabuf_fd=9, size=8192
+  userd buffer:     handle=2147487079, dmabuf_fd=10, size=4096
+
+=== SETUP_BIND (GPFIFO + userd + usermode submit) ===
+  Work submit token: 511
+  GPFIFO GPU VA:     0x000000000000
+  USERD GPU VA:      0x000000000000
+  Usermode MMIO VA:  0x000000000000
+
+=== GET_USER_SYNCPOINT ===
+  Syncpoint ID:     17
+  Syncpoint max:    36000
+  GPU VA:           0x00ffffe10000
+
+=== ALLOC_OBJ_CTX (compute class 0xc7c0) ===
+  Compute object:   class=0xc7c0, obj_id=0x0000000000000000
+  ✓ COMPUTE CLASS ALLOCATED SUCCESSFULLY!
+
+  ✓ FULL CHANNEL + COMPUTE SETUP succeeded!
+
+============================================================
+PHASE 2: Memory Management — mmap, coherence, TegraAllocator
+============================================================
+
+============================================================
+TEST 8: MMAP READ/WRITE
+============================================================
+  Allocated:        handle=0x80000d68, dmabuf_fd=11, size=4096
+  mmapped:          4096 bytes, fd=11
+
+  --- Pattern 1: Sequential bytes ---
+  Sequential bytes: PASS
+  --- Pattern 2: u32 values via struct ---
+  u32 pattern:      PASS
+  --- Pattern 3: Full buffer fill ---
+  Full fill 0xAA:   PASS
+  Zero fill:        PASS
+
+  ✓ mmap read/write test PASSED
+
+============================================================
+TEST 9: MEMORY COHERENCE (dual mmap)
+============================================================
+  Allocated:        handle=0x80000d69, size=8192
+  mmap #1:          fd=11
+  mmap #2:          same fd, different mapping
+
+  --- Coherence: write mm1, read mm2 ---
+  mm1→mm2:          PASS
+  --- Coherence: write mm2, read mm1 ---
+  mm2→mm1:          PASS
+  --- Coherence: interleaved byte writes ---
+  Interleaved:      PASS
+  --- Coherence: cross-page boundary (offset 4094-4098) ---
+  Cross-page:       PASS
+
+  --- NVMAP_IOC_WRITE + NVMAP_IOC_READ ---
+  NVMAP R/W ioctl:  PASS (64 bytes round-tripped)
+  ioctl→mmap:       PASS (ioctl write visible in mmap)
+
+  ✓ Memory coherence test PASSED
+    IO_COHERENCE confirmed: no cache flushes needed!
+
+============================================================
+TEST 10: MULTI-SIZE ALLOC + MMAP + GPU MAP
+============================================================
+
+  --- 4 KB (4096 bytes) ---
+    handle=0x80000d6a, dmabuf_fd=11, gpu_va=0x00ffffa01000
+    alloc=0.0ms, mmap=0.0ms, total=0.1ms
+    Read/write:     PASS
+
+  --- 64 KB (65536 bytes) ---
+    handle=0x80000d6b, dmabuf_fd=11, gpu_va=0x00ffffa10000
+    alloc=0.0ms, mmap=0.0ms, total=0.1ms
+    Read/write:     PASS
+
+  --- 1 MB (1048576 bytes) ---
+    handle=0x80000d6c, dmabuf_fd=11, gpu_va=0x00ffffb00000
+    alloc=0.0ms, mmap=0.0ms, total=0.1ms
+    Read/write:     PASS
+
+  --- 16 MB (16777216 bytes) ---
+    handle=0x80000d6d, dmabuf_fd=11, gpu_va=0x00fffe200000
+    alloc=0.1ms, mmap=0.2ms, total=0.9ms
+    Read/write:     PASS
+
+  --- 64 MB (67108864 bytes) ---
+    handle=0x80000d6e, dmabuf_fd=11, gpu_va=0x00fff8200000
+    alloc=0.1ms, mmap=0.5ms, total=3.0ms
+    Read/write:     PASS
+
+  ✓ Multi-size test PASSED (all 5 sizes)
+
+============================================================
+TEST 11: WRITE_COMBINE vs CACHEABLE FLAGS
+============================================================
+
+  --- WRITE_COMBINE (flags=1) ---
+    GPU VA:         0x00ffffb00000
+    Write:          0.33ms (3186 MB/s)
+    Read:           1.54ms (682 MB/s)
+    Correctness:    PASS
+
+  --- CACHEABLE (flags=5) ---
+    GPU VA:         0x00ffffb00000
+    Write:          0.35ms (3027 MB/s)
+    Read:           1.60ms (656 MB/s)
+    Correctness:    PASS
+
+  --- UNCACHEABLE (flags=0) ---
+    GPU VA:         0x00ffffb00000
+    Write:          1.52ms (688 MB/s)
+    Read:           13.35ms (79 MB/s)
+    Correctness:    PASS
+
+  --- INNER_CACHEABLE (flags=2) ---
+    GPU VA:         0x00ffffb00000
+    Write:          0.39ms (2685 MB/s)
+    Read:           0.09ms (11458 MB/s)
+    Correctness:    PASS
+
+  === Performance Summary ===
+    WRITE_COMBINE (flags=1): write=0.33ms read=1.54ms ✓
+    CACHEABLE (flags=5): write=0.35ms read=1.60ms ✓
+    UNCACHEABLE (flags=0): write=1.52ms read=13.35ms ✓
+    INNER_CACHEABLE (flags=2): write=0.39ms read=0.09ms ✓
+
+  ✓ Cacheability flags test PASSED
+
+============================================================
+PHASE 3: Command Submission — GPFIFO, QMD, compute dispatch
+============================================================
+
+============================================================
+TEST 12: MMAP USERD + GPFIFO BUFFERS
+============================================================
+  userd mmap:       OK, 4096 bytes, fd=10
+  GPGet:            0
+  GPPut:            0
+  GPFIFO mmap:      OK, 8192 bytes, fd=9
+  GPFIFO non-zero:  0 bytes (should be 0)
+
+  ✓ USERD + GPFIFO mmap PASSED
+
+============================================================
+TEST 13: GPFIFO SEMAPHORE RELEASE
+============================================================
+  Semaphore buffer: gpu_va=0x00ffffa01000
+  ✗ GPFIFO semaphore release FAILED: [Errno 22] Invalid argument
+Traceback (most recent call last):
+  File "/home/agent/jetpack-nixos/examples/tinygrad/test_nvgpu.py", line 2568, in main
+    if test_gpfifo_semaphore_release(channel_info, phase3_allocator, compute_class):
+       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/agent/jetpack-nixos/examples/tinygrad/test_nvgpu.py", line 2003, in test_gpfifo_semaphore_release
+    pushbuf.cpu_addr.flush()
+    ~~~~~~~~~~~~~~~~~~~~~~^^
+OSError: [Errno 22] Invalid argument
+
+============================================================
+TEST 14: NVRTC SHADER COMPILATION
+============================================================
+  Kernel source:    test_kernel(float *out)
+  Target arch:      sm_87
+  CUBIN size:       2984 bytes
+  .text offset:     0x580
+  .text size:       640 bytes
+  Register count:   16
+  Shared memory:    0 bytes
+  SASS preview:     0c 7c 00 ff 02 00 00 00 70 50 f0 0b 00 da 0f 00
+
+  ✓ NVRTC COMPILATION PASSED
+
+============================================================
+TEST 15: FULL COMPUTE DISPATCH
+============================================================
+  ✗ Compute dispatch FAILED: [Errno 22] Invalid argument
+Traceback (most recent call last):
+  File "/home/agent/jetpack-nixos/examples/tinygrad/test_nvgpu.py", line 2594, in main
+    if test_compute_dispatch(channel_info, phase3_allocator, compute_class, cubin_info):
+       ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/agent/jetpack-nixos/examples/tinygrad/test_nvgpu.py", line 2165, in test_compute_dispatch
+    shader_buf.cpu_addr.flush()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+OSError: [Errno 22] Invalid argument
+
+============================================================
+Results: 13/15 tests passed
+
+Phase 1+2: PASSED  Phase 3: 2/4 tests passed
+Some tests failed — check errors above
+============================================================
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  cd /home/agent/jetpack-nixos/examples/tinygrad && nix develop --command python3 test_nvgpu.py 2>&1
+warning: Git tree '/home/agent/jetpack-nixos' is dirty
+
+=== tinygrad dev shell (Orin AGX / CUDA 12.6) ===
+
+Quick test (CPU):
+  python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+Quick test (CUDA):
+  CUDA=1 python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+LLM examples (clone tinygrad repo first):
+  git clone --depth 1 https://github.com/tinygrad/tinygrad.git
+  cd tinygrad && CUDA=1 python3 examples/gpt2.py --count 20
+
+PYTHONPATH includes /home/agent/jetpack-nixos/examples/tinygrad/tinygrad for the 'extra' module.
+
+============================================================
+Phase 1+2+3: Direct nvgpu/nvmap ioctl test
+Phase 1: GPU access WITHOUT CUDA
+Phase 2: Memory management — mmap, coherence, TegraAllocator
+Phase 3: Command submission — GPFIFO, QMD, compute dispatch
+============================================================
+
+Opened /dev/nvmap → fd=3
+Opened /dev/nvgpu/igpu0/ctrl → fd=4
+
+============================================================
+PHASE 1: GPU Discovery & Channel Setup
+============================================================
+
+=== GET_CHARACTERISTICS ===
+  Architecture:     0x0170 = GA100 (Ampere)
+  Implementation:   0x000b
+  Revision:         161
+  Num GPC:          1
+  NUMA domain:      -1
+  L2 cache size:    4194304 bytes (4096 KB)
+  VRAM size:        0 bytes
+  Num TPC/GPC:      4
+  Bus type:         32
+  Big page size:    0
+  Compr page size:  65536
+  GPU VA bits:      40
+  GPC mask:         0x00000001
+  SM arch version:  0x00000807
+  SM arch SPA ver:  0x00000806
+  SM arch warp cnt: 96
+  Flags:            0x01bf5fff7f5d035d
+  Active flags:     SUPPORT_PARTIAL_MAPPINGS, SUPPORT_SYNC_FENCE_FDS, SUPPORT_CYCLE_STATS, SUPPORT_CYCLE_STATS_SNAPSHOT, SUPPORT_CLOCK_CONTROLS, SUPPORT_GET_CURRENT, SUPPORT_GET_POWER, SUPPORT_FECS_CTXSW_TRACE, SUPPORT_DETERMINISTIC_SUBMIT_NO_JOBTRACKING, SUPPORT_DETERMINISTIC_SUBMIT_FULL, SUPPORT_IO_COHERENCE, SUPPORT_TSG_SUBCONTEXTS, SUPPORT_DETERMINISTIC_OPTS, SUPPORT_SCG, SUPPORT_SYNCPOINT_ADDRESS, SUPPORT_VPR, SUPPORT_USER_SYNCPOINT, CAN_RAILGATE, SUPPORT_USERMODE_SUBMIT, SUPPORT_COMPUTE
+
+  === Classes (critical for compute) ===
+  2D class:         0x902d
+  3D class:         0xc797
+  Compute class:    0xc7c0
+  GPFIFO class:     0xc76f
+  I2M class:        0xa140
+  DMA copy class:   0xc7b5
+
+  === Memory ===
+  Max FBPs:         2
+  FBP en mask:      0x00000003
+  Max LTC/FBP:      1
+  Max LTS/LTC:      4
+  Num LTC:          2
+  Max GPFIFO:       268435456
+  Max freq:         1300000000 Hz (1300 MHz)
+  Chip name:        ga10b
+
+  === IOCTL interface levels ===
+  GPU ioctl last:   44
+  TSG ioctl last:   21
+  Channel last:     128
+  AS ioctl last:    14
+  ✓ GET_CHARACTERISTICS succeeded!
+
+=== ZCULL_GET_CTX_SIZE ===
+  ZCull ctx size:   164352 bytes
+  ✓ ZCULL_GET_CTX_SIZE succeeded!
+
+=== NVMAP GET_AVAILABLE_HEAPS ===
+  Heap bitmask:     0x0000000010000004
+  Available heaps:  CARVEOUT_FSI (1<<2), CARVEOUT_VPR (1<<28)
+  ✓ GET_AVAILABLE_HEAPS succeeded!
+
+=== NVMAP CREATE + ALLOC (4096 bytes) ===
+  Created handle:   2147487094 (0x80000d76)
+  Allocated with heap=IOVMM (0x40000000), alignment=4096
+  Got dmabuf fd:    5
+  ✓ NVMAP CREATE + ALLOC succeeded!
+
+=== ALLOC_AS (create address space) ===
+  AS fd:            6
+  VA range:         0x000000200000 - 0x00ffffe00000
+  ✓ ALLOC_AS succeeded!
+
+=== MAP_BUFFER_EX (map 4096 bytes into GPU VA) ===
+  GPU VA:           0x00ffffa00000
+  ✓ MAP_BUFFER_EX succeeded!
+
+============================================================
+FULL CHANNEL + COMPUTE SETUP
+============================================================
+
+=== OPEN_TSG ===
+  TSG fd:           7
+
+=== CREATE_SUBCONTEXT ===
+  VEID:             1
+
+=== OPEN_CHANNEL ===
+  Channel fd:       8
+
+=== AS BIND_CHANNEL ===
+  Bound channel 8 to AS 6
+
+=== BIND_CHANNEL_EX ===
+  Bound channel 8 to TSG 7
+
+=== CHANNEL WDT (disable) ===
+  Watchdog disabled
+
+=== Allocating GPFIFO + userd buffers ===
+  GPFIFO buffer:    handle=2147487095, dmabuf_fd=9, size=8192
+  userd buffer:     handle=2147487096, dmabuf_fd=10, size=4096
+
+=== SETUP_BIND (GPFIFO + userd + usermode submit) ===
+  Work submit token: 511
+  GPFIFO GPU VA:     0x000000000000
+  USERD GPU VA:      0x000000000000
+  Usermode MMIO VA:  0x000000000000
+
+=== GET_USER_SYNCPOINT ===
+  Syncpoint ID:     17
+  Syncpoint max:    38000
+  GPU VA:           0x00ffffe10000
+
+=== ALLOC_OBJ_CTX (compute class 0xc7c0) ===
+  Compute object:   class=0xc7c0, obj_id=0x0000000000000000
+  ✓ COMPUTE CLASS ALLOCATED SUCCESSFULLY!
+
+  ✓ FULL CHANNEL + COMPUTE SETUP succeeded!
+
+============================================================
+PHASE 2: Memory Management — mmap, coherence, TegraAllocator
+============================================================
+
+============================================================
+TEST 8: MMAP READ/WRITE
+============================================================
+  Allocated:        handle=0x80000d79, dmabuf_fd=11, size=4096
+  mmapped:          4096 bytes, fd=11
+
+  --- Pattern 1: Sequential bytes ---
+  Sequential bytes: PASS
+  --- Pattern 2: u32 values via struct ---
+  u32 pattern:      PASS
+  --- Pattern 3: Full buffer fill ---
+  Full fill 0xAA:   PASS
+  Zero fill:        PASS
+
+  ✓ mmap read/write test PASSED
+
+============================================================
+TEST 9: MEMORY COHERENCE (dual mmap)
+============================================================
+  Allocated:        handle=0x80000d7a, size=8192
+  mmap #1:          fd=11
+  mmap #2:          same fd, different mapping
+
+  --- Coherence: write mm1, read mm2 ---
+  mm1→mm2:          PASS
+  --- Coherence: write mm2, read mm1 ---
+  mm2→mm1:          PASS
+  --- Coherence: interleaved byte writes ---
+  Interleaved:      PASS
+  --- Coherence: cross-page boundary (offset 4094-4098) ---
+  Cross-page:       PASS
+
+  --- NVMAP_IOC_WRITE + NVMAP_IOC_READ ---
+  NVMAP R/W ioctl:  PASS (64 bytes round-tripped)
+  ioctl→mmap:       PASS (ioctl write visible in mmap)
+
+  ✓ Memory coherence test PASSED
+    IO_COHERENCE confirmed: no cache flushes needed!
+
+============================================================
+TEST 10: MULTI-SIZE ALLOC + MMAP + GPU MAP
+============================================================
+
+  --- 4 KB (4096 bytes) ---
+    handle=0x80000d7b, dmabuf_fd=11, gpu_va=0x00ffffa01000
+    alloc=0.0ms, mmap=0.0ms, total=0.1ms
+    Read/write:     PASS
+
+  --- 64 KB (65536 bytes) ---
+    handle=0x80000d7c, dmabuf_fd=11, gpu_va=0x00ffffa10000
+    alloc=0.0ms, mmap=0.0ms, total=0.1ms
+    Read/write:     PASS
+
+  --- 1 MB (1048576 bytes) ---
+    handle=0x80000d7d, dmabuf_fd=11, gpu_va=0x00ffffb00000
+    alloc=0.0ms, mmap=0.0ms, total=0.1ms
+    Read/write:     PASS
+
+  --- 16 MB (16777216 bytes) ---
+    handle=0x80000d7e, dmabuf_fd=11, gpu_va=0x00fffe200000
+    alloc=0.0ms, mmap=0.2ms, total=0.8ms
+    Read/write:     PASS
+
+  --- 64 MB (67108864 bytes) ---
+    handle=0x80000d7f, dmabuf_fd=11, gpu_va=0x00fff8200000
+    alloc=0.1ms, mmap=0.5ms, total=3.1ms
+    Read/write:     PASS
+
+  ✓ Multi-size test PASSED (all 5 sizes)
+
+============================================================
+TEST 11: WRITE_COMBINE vs CACHEABLE FLAGS
+============================================================
+
+  --- WRITE_COMBINE (flags=1) ---
+    GPU VA:         0x00ffffb00000
+    Write:          0.33ms (3168 MB/s)
+    Read:           1.53ms (687 MB/s)
+    Correctness:    PASS
+
+  --- CACHEABLE (flags=5) ---
+    GPU VA:         0x00ffffb00000
+    Write:          0.35ms (3004 MB/s)
+    Read:           1.59ms (661 MB/s)
+    Correctness:    PASS
+
+  --- UNCACHEABLE (flags=0) ---
+    GPU VA:         0x00ffffb00000
+    Write:          1.51ms (696 MB/s)
+    Read:           13.30ms (79 MB/s)
+    Correctness:    PASS
+
+  --- INNER_CACHEABLE (flags=2) ---
+    GPU VA:         0x00ffffb00000
+    Write:          0.38ms (2766 MB/s)
+    Read:           0.09ms (11547 MB/s)
+    Correctness:    PASS
+
+  === Performance Summary ===
+    WRITE_COMBINE (flags=1): write=0.33ms read=1.53ms ✓
+    CACHEABLE (flags=5): write=0.35ms read=1.59ms ✓
+    UNCACHEABLE (flags=0): write=1.51ms read=13.30ms ✓
+    INNER_CACHEABLE (flags=2): write=0.38ms read=0.09ms ✓
+
+  ✓ Cacheability flags test PASSED
+
+============================================================
+PHASE 3: Command Submission — GPFIFO, QMD, compute dispatch
+============================================================
+
+============================================================
+TEST 12: MMAP USERD + GPFIFO BUFFERS
+============================================================
+  userd mmap:       OK, 4096 bytes, fd=10
+  GPGet:            0
+  GPPut:            0
+  GPFIFO mmap:      OK, 8192 bytes, fd=9
+  GPFIFO non-zero:  0 bytes (should be 0)
+
+  ✓ USERD + GPFIFO mmap PASSED
+
+============================================================
+TEST 13: GPFIFO SEMAPHORE RELEASE
+============================================================
+  Semaphore buffer: gpu_va=0x00ffffa01000
+  Push buffer:      10 words (40 bytes)
+  Push buffer VA:   0x00ffffa02000
+  Sem addr:         0x00ffffa01000
+  Expected value:   0x42
+  Waiting for GPU...
+  After 2001ms: sem=0x0 (expected 0x42)
+  GPPut update alone didn't trigger GPU, trying SUBMIT_GPFIFO kick...
+  SUBMIT_GPFIFO kick returned: [Errno 25] Inappropriate ioctl for device
+  After kick: sem=0x0
+  Trying host1x doorbell mechanism...
+  GPGet=0, GPPut=1
+
+  ✗ GPFIFO SEMAPHORE RELEASE FAILED
+    Semaphore still 0x0, expected 0x42
+    Possible causes:
+    - Doorbell mechanism not working (need MMIO write?)
+    - Push buffer format incorrect
+    - Channel not properly enabled
+
+============================================================
+TEST 14: NVRTC SHADER COMPILATION
+============================================================
+  Kernel source:    test_kernel(float *out)
+  Target arch:      sm_87
+  CUBIN size:       2984 bytes
+  .text offset:     0x580
+  .text size:       640 bytes
+  Register count:   16
+  Shared memory:    0 bytes
+  SASS preview:     0c 7c 00 ff 02 00 00 00 70 50 f0 0b 00 da 0f 00
+
+  ✓ NVRTC COMPILATION PASSED
+
+============================================================
+TEST 15: FULL COMPUTE DISPATCH
+============================================================
+  Shader buffer:    gpu_va=0x00ffffa04000, size=8192
+  Program address:  0x00ffffa04580 (.text offset=0x580)
+  Output buffer:    gpu_va=0x00ffffa03000, size=4096
+  Const buffer:     gpu_va=0x00ffffa06000
+  Kernel arg @0x160: output_buf VA = 0x00ffffa03000
+  QMD buffer:       gpu_va=0x00ffffa08000
+  QMD registers:    16
+  QMD shmem:        1024
+  QMD grid:         1x1x1
+  QMD threads:      32x1x1
+  Push buffer:      14 words, gpu_va=0x00ffffa09000
+
+  Submitting to GPFIFO...
+  ✗ TIMEOUT after 5001ms: sem=0x0 (expected 0xdead)
+  GPGet=0, GPPut=2
+
+  ✗ COMPUTE DISPATCH FAILED
+
+============================================================
+Results: 13/15 tests passed
+
+Phase 1+2: PASSED  Phase 3: 2/4 tests passed
+Some tests failed — check errors above
+============================================================
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  find /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu -type f -name "*.c" -o -name "*.h" | head -50
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/dma.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/nvgpu_mem.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/as.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/vm_remap.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/nvgpu_sgt.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/ipa_pa_cache.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/gmmu/pte.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/gmmu/pd_cache_priv.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/gmmu/pd_cache.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/gmmu/page_table.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/vm.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/allocators/nvgpu_allocator.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/allocators/bitmap_allocator.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/allocators/page_allocator.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/allocators/buddy_allocator_priv.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/allocators/buddy_allocator.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/allocators/bitmap_allocator_priv.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/vm_area.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/comptags.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/vidmem.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/mm.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/fifo/channel.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_tsg.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_as.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_prof.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_as.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_nvs.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_ctrl.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_tsg.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_ctrl.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/linux-channel.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_dbg.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu-nvs.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu-ctrl.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu-uapi-common.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu-as.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu-event.h
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  find /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu -type f -name "*.c" -o -name "*.h" | wc -l
+42
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  find /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu -type f -name "*.c" -o -name "*.h" | sort
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/fifo/channel.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/allocators/bitmap_allocator.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/allocators/bitmap_allocator_priv.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/allocators/buddy_allocator.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/allocators/buddy_allocator_priv.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/allocators/nvgpu_allocator.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/allocators/page_allocator.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/as.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/comptags.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/dma.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/gmmu/page_table.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/gmmu/pd_cache.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/gmmu/pd_cache_priv.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/gmmu/pte.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/ipa_pa_cache.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/mm.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/nvgpu_mem.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/nvgpu_sgt.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/vidmem.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/vm_area.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/vm.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/vm_remap.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_as.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_as.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_ctrl.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_ctrl.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_dbg.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_nvs.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_prof.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_tsg.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_tsg.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/linux-channel.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu-as.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu-ctrl.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu-event.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu-nvs.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu-uapi-common.h
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  grep -rn "doorbell\|ring_doorbell\|usermode_mmio\|usermode.*submit\|alloc_usermode\|dmabuf_fd\|userd.*gpput\|GPPut\|gpput" /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/ --include="*.c" --include="*.h"
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/fifo/channel.c:725:      if (ch->usermode_submit_enabled) {
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/fifo/channel.c:822:      ch->usermode_submit_enabled = false;
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/fifo/channel.c:1050:     if (ch->usermode_submit_enabled) {
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/fifo/channel.c:1409:     if (g->os_channel.alloc_usermode_buffers != NULL) {
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/fifo/channel.c:1410:             err = g->os_channel.alloc_usermode_buffers(c, args);
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/fifo/channel.c:1418:             c->usermode_submit_enabled = true;
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/fifo/channel.c:1447:     c->usermode_submit_enabled = false;
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/fifo/channel.c:1493:     if (c->usermode_submit_enabled) {
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/fifo/channel.c:1530:             nvgpu_err(g, "need deterministic for usermode submit");
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.c:150:int gk20a_channel_cycle_stats(struct nvgpu_channel *ch, int dmabuf_fd)
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.c:160:   if (dmabuf_fd && !priv->cyclestate_buffer_handler) {
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.c:163:           dmabuf = dma_buf_get(dmabuf_fd);
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.c:178:   } else if (!dmabuf_fd && priv->cyclestate_buffer_handler) {
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.c:182:   } else if (!dmabuf_fd && !priv->cyclestate_buffer_handler) {
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.c:207:                           u32 dmabuf_fd,
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.c:228:   client_linux->dmabuf_fd   = dmabuf_fd;
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.c:229:   client_linux->dma_handler = dma_buf_get(client_linux->dmabuf_fd);
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.c:646:   setup_bind_args->userd_dmabuf_fd =
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.c:647:           channel_setup_bind_args->userd_dmabuf_fd;
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.c:650:   setup_bind_args->gpfifo_dmabuf_fd =
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.c:651:           channel_setup_bind_args->gpfifo_dmabuf_fd;
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.c:778:           id = args->condition.notifier.dmabuf_fd;
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.c:834:                           args->condition.semaphore.dmabuf_fd,
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.c:1338:          channel_setup_bind_args->usermode_mmio_gpu_va =
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.c:1339:                  setup_bind_args.usermode_mmio_gpu_va;
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_as.c:112:        return nvgpu_vm_map_buffer(as_share->vm, args->dmabuf_fd,
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_as.c:198:                        as_share->vm, map_args.dmabuf_fd,
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_ctrl.c:1457:     args->out.dmabuf_fd = fd;
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_ctrl.c:2135:     s32 dmabuf_fd = args->in.dmabuf_fd;
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_ctrl.c:2151:     dmabuf = dma_buf_get(dmabuf_fd);
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_ctrl.c:2154:                        __func__, dmabuf_fd);
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_ctrl.c:2205:                    dmabuf_fd, args->out.flags, args->out.size);
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_ctrl.c:2325:     nvgpu_log_info(g, "dmabuf_fd: %d, comptags control: %u, metadata size: %u, flags: %u",
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_ctrl.c:2326:                    args->dmabuf_fd, args->comptags_alloc_control,
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_ctrl.c:2332:     dmabuf = dma_buf_get(args->dmabuf_fd);
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_ctrl.c:2335:                        __func__, args->dmabuf_fd);
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/linux-channel.c:428:static int nvgpu_usermode_buf_from_dmabuf(struct gk20a *g, int dmabuf_fd,
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/linux-channel.c:437:   dmabuf = dma_buf_get(dmabuf_fd);
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/linux-channel.c:505:static int nvgpu_channel_alloc_usermode_buffers(struct nvgpu_channel *c,
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/linux-channel.c:514:   if (args->gpfifo_dmabuf_fd == 0 || args->userd_dmabuf_fd == 0) {
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/linux-channel.c:524:   err = nvgpu_usermode_buf_from_dmabuf(g, args->gpfifo_dmabuf_fd,
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/linux-channel.c:548:   err = nvgpu_usermode_buf_from_dmabuf(g, args->userd_dmabuf_fd,
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/linux-channel.c:563:   args->work_submit_token = g->ops.usermode.doorbell_token(c);
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/linux-channel.c:566:   args->usermode_mmio_gpu_va = c->vm->gpummio_va;
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/linux-channel.c:614:   g->os_channel.alloc_usermode_buffers =
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/linux-channel.c:615:           nvgpu_channel_alloc_usermode_buffers;
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.h:30:    u32                     dmabuf_fd;
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.h:43:int gk20a_channel_cycle_stats(struct nvgpu_channel *ch, int dmabuf_fd);
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.h:47:                            u32 dmabuf_fd,
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu-nvs.h:202: * 'dmabuf_fd' is populated by the KMD for the success case, else its set to -1.
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu-nvs.h:241:       __s32 dmabuf_fd;
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu-ctrl.h:662:                      __s32 dmabuf_fd;
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu-ctrl.h:806:                      __s32 dmabuf_fd;
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu-ctrl.h:1176:     __s32 dmabuf_fd;
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu-as.h:173: * @dmabuf_fd  [IN]
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu-as.h:233:        __u32 dmabuf_fd;        /* in */
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu-as.h:469: *   Specify the memory handle (dmabuf_fd) associated with the physical
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu-as.h:515:        /* in: For map operations, this field specifies the handle (dmabuf_fd)
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu.h:461:   __u32 dmabuf_fd;        /* in */
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu.h:599:   __s32 dmabuf_fd; /* in: dmabuf fd of the buffer in FB */
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu.h:648:   __u32 dmabuf_fd;
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu.h:658:   __u32 dmabuf_fd;        /* in: dma buffer handler    */
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu.h:1089: * Enable usermode submits on this channel.
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu.h:1093: * token is passed back to be written in the doorbell register in the usermode
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu.h:1104:  __s32 userd_dmabuf_fd;  /* in */
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu.h:1105:  __s32 gpfifo_dmabuf_fd; /* in */
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu.h:1111:  __u64 usermode_mmio_gpu_va; /* out */
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu.h:1149:                  __u32 dmabuf_fd;
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu.h:1156:                  __u32 dmabuf_fd;
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$ 
+
+
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  find /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/ -type d | head -60
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvidia-oot
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvidia-oot/drivers
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvidia-oot/drivers/video
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvidia-oot/drivers/video/tegra
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvidia-oot/drivers/video/tegra/nvmap
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvidia-oot/include
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvidia-oot/include/uapi
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvidia-oot/include/uapi/linux
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvidia-oot/include/linux
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/gmmu
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/allocators
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/fifo
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$ 
+
+ ls -la /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && find /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvidia-oot/ -type f | head -30
+total 8264
+drwxr-xr-x 2 agent users    4096 Feb 10 08:29 .
+drwxr-xr-x 3 agent users    4096 Feb 10 08:29 ..
+-rw-r--r-- 1 agent users 8451357 Jun 16  2025 kernel_oot_modules_src.tbz2
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvidia-oot/drivers/video/tegra/nvmap/nvmap_ioctl.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvidia-oot/drivers/video/tegra/nvmap/nvmap_ioctl.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvidia-oot/include/uapi/linux/nvmap.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvidia-oot/include/uapi/linux/nvhost_ioctl.h
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvidia-oot/include/linux/nvmap.h
+
+
+  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar tjf kernel_oot_modules_src.tbz2 2>/dev/null | grep -i "ga10b.*usermode\|usermode.*ga10b\|ring_doorbell\|doorbell_token\|usermode_doorbell" | head -30
+nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_ga10b_fusa.c
+nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_ga10b.h
+
+
+cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar tjf kernel_oot_modules_src.tbz2 2>/dev/null | grep -i "doorbell\|usermode_g" | head -30
+nvgpu/drivers/gpu/nvgpu/include/nvgpu/hw/gv100/hw_usermode_gv100.h
+nvgpu/drivers/gpu/nvgpu/include/nvgpu/hw/gv11b/hw_usermode_gv11b.h
+nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_ga10b_fusa.c
+nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_gv11b.h
+nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_gv11b_fusa.c
+nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_ga10b.h
+
+
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar tjf kernel_oot_modules_src.tbz2 2>/dev/null | grep -i "doorbell\|usermode_g" | head -30
+nvgpu/drivers/gpu/nvgpu/include/nvgpu/hw/gv100/hw_usermode_gv100.h
+nvgpu/drivers/gpu/nvgpu/include/nvgpu/hw/gv11b/hw_usermode_gv11b.h
+nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_ga10b_fusa.c
+nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_gv11b.h
+nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_gv11b_fusa.c
+nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_ga10b.h
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar tjf kernel_oot_modules_src.tbz2 2>/dev/null | grep -i "hw_usermode_ga10b\|gops.*usermode\|fifo_ga10b_init\|hal_init.*ga10b\|ga10b_init" | head -30
+nvgpu/drivers/gpu/nvgpu/include/nvgpu/gops/usermode.h
+
+
+
+nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_gv11b_fusa.c
+nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_ga10b.h
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar tjf kernel_oot_modules_src.tbz2 2>/dev/null | grep -i "hw_usermode_ga10b\|gops.*usermode\|fifo_ga10b_init\|hal_init.*ga10b\|ga10b_init" | head -30
+nvgpu/drivers/gpu/nvgpu/include/nvgpu/gops/usermode.h
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar tjf kernel_oot_modules_src.tbz2 2>/dev/null | grep "hw_usermode\|channel_ga10b\|hal/fifo/fifo_ga10b\|ga10b.*hal_init\|hal_ga10b" | head -30
+nvgpu/drivers/gpu/nvgpu/include/nvgpu/hw/gv100/hw_usermode_gv100.h
+nvgpu/drivers/gpu/nvgpu/include/nvgpu/hw/tu104/hw_usermode_tu104.h
+nvgpu/drivers/gpu/nvgpu/include/nvgpu/hw/gv11b/hw_usermode_gv11b.h
+nvgpu/drivers/gpu/nvgpu/hal/vgpu/init/vgpu_hal_ga10b.c
+nvgpu/drivers/gpu/nvgpu/hal/vgpu/init/vgpu_hal_ga10b.h
+nvgpu/drivers/gpu/nvgpu/hal/fifo/fifo_ga10b.h
+nvgpu/drivers/gpu/nvgpu/hal/fifo/channel_ga10b_fusa.c
+nvgpu/drivers/gpu/nvgpu/hal/fifo/fifo_ga10b_fusa.c
+nvgpu/drivers/gpu/nvgpu/hal/fifo/channel_ga10b.h
+nvgpu/drivers/gpu/nvgpu/hal/init/hal_ga10b_litter.h
+nvgpu/drivers/gpu/nvgpu/hal/init/hal_ga10b.c
+nvgpu/drivers/gpu/nvgpu/hal/init/hal_ga10b_litter.c
+nvgpu/drivers/gpu/nvgpu/hal/init/hal_ga10b.h
+
+
+
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar xjf kernel_oot_modules_src.tbz2 \
+>   nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_ga10b_fusa.c \
+>   nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_ga10b.h \
+>   nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_gv11b_fusa.c \
+>   nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_gv11b.h \
+>   nvgpu/drivers/gpu/nvgpu/include/nvgpu/gops/usermode.h \
+>   nvgpu/drivers/gpu/nvgpu/include/nvgpu/hw/gv11b/hw_usermode_gv11b.h \
+>   nvgpu/drivers/gpu/nvgpu/include/nvgpu/hw/gv100/hw_usermode_gv100.h \
+>   nvgpu/drivers/gpu/nvgpu/hal/init/hal_ga10b.c \
+>   nvgpu/drivers/gpu/nvgpu/hal/fifo/channel_ga10b_fusa.c \
+>   nvgpu/drivers/gpu/nvgpu/hal/fifo/channel_ga10b.h \
+>   nvgpu/drivers/gpu/nvgpu/include/nvgpu/hw/tu104/hw_usermode_tu104.h \
+>   -C /tmp/nvgpu_extract/ 2>&1
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cat /tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_ga10b_fusa.c
+cat: /tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_ga10b_fusa.c: No such file or directory
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  find /tmp/nvgpu_extract/ -type f 2>/dev/null | head -20; ls -la /tmp/nvgpu_extract/ 2>/dev/null
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  mkdir -p /tmp/nvgpu_extract && cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar tjf kernel_oot_modules_src.tbz2 | head -5
+Makefile
+hardware/nvidia/tegra/nv-public/
+hardware/nvidia/tegra/nv-public/overlay/
+hardware/nvidia/tegra/nv-public/overlay/jetson-audio-respeaker-4-mic-lin-array.dtsi
+hardware/nvidia/tegra/nv-public/overlay/jetson-audio-respeaker-4-mic-array.dtsi
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar tjf kernel_oot_modules_src.tbz2 | grep "usermode_ga10b"
+nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_ga10b_fusa.c
+nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_ga10b.h
+
+
+i
+hardware/nvidia/tegra/nv-public/overlay/jetson-audio-respeaker-4-mic-array.dtsi
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar tjf kernel_oot_modules_src.tbz2 | grep "usermode_ga10b"
+nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_ga10b_fusa.c
+nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_ga10b.h
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar xjf kernel_oot_modules_src.tbz2 -C /tmp/nvgpu_extract/ \
+>   "nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_ga10b_fusa.c" \
+>   "nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_ga10b.h" \
+>   "nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_gv11b_fusa.c" \
+>   "nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_gv11b.h" \
+>   "nvgpu/drivers/gpu/nvgpu/include/nvgpu/gops/usermode.h" \
+>   "nvgpu/drivers/gpu/nvgpu/include/nvgpu/hw/gv11b/hw_usermode_gv11b.h" \
+>   "nvgpu/drivers/gpu/nvgpu/include/nvgpu/hw/tu104/hw_usermode_tu104.h" \
+>   "nvgpu/drivers/gpu/nvgpu/hal/init/hal_ga10b.c" \
+>   "nvgpu/drivers/gpu/nvgpu/hal/fifo/channel_ga10b_fusa.c" \
+>   "nvgpu/drivers/gpu/nvgpu/hal/fifo/channel_ga10b.h" 2>&1 && echo "DONE" && find /tmp/nvgpu_extract -type f
+DONE
+/tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_ga10b_fusa.c
+/tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_gv11b.h
+/tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/hal/fifo/channel_ga10b.h
+/tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_ga10b.h
+/tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/hal/fifo/channel_ga10b_fusa.c
+/tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_gv11b_fusa.c
+/tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/hal/init/hal_ga10b.c
+/tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/include/nvgpu/hw/tu104/hw_usermode_tu104.h
+/tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/include/nvgpu/hw/gv11b/hw_usermode_gv11b.h
+/tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/include/nvgpu/gops/usermode.h
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$ 
+
+
+$  mkdir -p /tmp/nvgpu_extract && cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar tjf kernel_oot_modules_src.tbz2 | head -5
+Makefile
+hardware/nvidia/tegra/nv-public/
+hardware/nvidia/tegra/nv-public/overlay/
+hardware/nvidia/tegra/nv-public/overlay/jetson-audio-respeaker-4-mic-lin-array.dtsi
+hardware/nvidia/tegra/nv-public/overlay/jetson-audio-respeaker-4-mic-array.dtsi
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar tjf kernel_oot_modules_src.tbz2 | grep "usermode_ga10b"
+nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_ga10b_fusa.c
+nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_ga10b.h
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar xjf kernel_oot_modules_src.tbz2 -C /tmp/nvgpu_extract/ \
+>   "nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_ga10b_fusa.c" \
+>   "nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_ga10b.h" \
+>   "nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_gv11b_fusa.c" \
+>   "nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_gv11b.h" \
+>   "nvgpu/drivers/gpu/nvgpu/include/nvgpu/gops/usermode.h" \
+>   "nvgpu/drivers/gpu/nvgpu/include/nvgpu/hw/gv11b/hw_usermode_gv11b.h" \
+>   "nvgpu/drivers/gpu/nvgpu/include/nvgpu/hw/tu104/hw_usermode_tu104.h" \
+>   "nvgpu/drivers/gpu/nvgpu/hal/init/hal_ga10b.c" \
+>   "nvgpu/drivers/gpu/nvgpu/hal/fifo/channel_ga10b_fusa.c" \
+>   "nvgpu/drivers/gpu/nvgpu/hal/fifo/channel_ga10b.h" 2>&1 && echo "DONE" && find /tmp/nvgpu_extract -type f
+DONE
+/tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_ga10b_fusa.c
+/tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_gv11b.h
+/tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/hal/fifo/channel_ga10b.h
+/tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_ga10b.h
+/tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/hal/fifo/channel_ga10b_fusa.c
+/tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_gv11b_fusa.c
+/tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/hal/init/hal_ga10b.c
+/tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/include/nvgpu/hw/tu104/hw_usermode_tu104.h
+/tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/include/nvgpu/hw/gv11b/hw_usermode_gv11b.h
+/tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/include/nvgpu/gops/usermode.h
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  grep -n "usermode\|doorbell\|ring_door" /tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/hal/init/hal_ga10b.c
+166:#include "hal/fifo/usermode_gv11b.h"
+167:#include "hal/fifo/usermode_tu104.h"
+168:#include "hal/fifo/usermode_ga10b.h"
+1290:static const struct gops_usermode ga10b_ops_usermode = {
+1291:   .setup_hw = ga10b_usermode_setup_hw,
+1292:   .base = tu104_usermode_base,
+1293:   .bus_base = tu104_usermode_bus_base,
+1294:   .ring_doorbell = tu104_usermode_ring_doorbell,
+1295:   .doorbell_token = tu104_usermode_doorbell_token,
+1912:   gops->usermode = ga10b_ops_usermode;
+
+
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  grep -n "usermode\|doorbell\|ring_door" /tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/hal/init/hal_ga10b.c
+166:#include "hal/fifo/usermode_gv11b.h"
+167:#include "hal/fifo/usermode_tu104.h"
+168:#include "hal/fifo/usermode_ga10b.h"
+1290:static const struct gops_usermode ga10b_ops_usermode = {
+1291:   .setup_hw = ga10b_usermode_setup_hw,
+1292:   .base = tu104_usermode_base,
+1293:   .bus_base = tu104_usermode_bus_base,
+1294:   .ring_doorbell = tu104_usermode_ring_doorbell,
+1295:   .doorbell_token = tu104_usermode_doorbell_token,
+1912:   gops->usermode = ga10b_ops_usermode;
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar tjf kernel_oot_modules_src.tbz2 | grep "usermode_tu104"
+nvgpu/drivers/gpu/nvgpu/include/nvgpu/hw/tu104/hw_usermode_tu104.h
+nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_tu104.h
+nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_tu104.c
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar xjf kernel_oot_modules_src.tbz2 -C /tmp/nvgpu_extract/ \
+>   "nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_tu104.c" \
+>   "nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_tu104.h" 2>&1 && cat /tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/hal/fifo/usermode_tu104.c
+/*
+ * Copyright (c) 2018-2022, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ */
+
+#include <nvgpu/types.h>
+#include <nvgpu/io.h>
+#include <nvgpu/log.h>
+#include <nvgpu/gk20a.h>
+#include <nvgpu/channel.h>
+#include <nvgpu/io_usermode.h>
+#include <nvgpu/runlist.h>
+
+#include "usermode_tu104.h"
+
+#include <nvgpu/hw/tu104/hw_usermode_tu104.h>
+#include <nvgpu/hw/tu104/hw_ctrl_tu104.h>
+#include <nvgpu/hw/tu104/hw_func_tu104.h>
+
+u64 tu104_usermode_base(struct gk20a *g)
+{
+        (void)g;
+        return func_cfg0_r();
+}
+
+u64 tu104_usermode_bus_base(struct gk20a *g)
+{
+        (void)g;
+        return U64(func_full_phys_offset_v() + func_cfg0_r());
+}
+
+void tu104_usermode_setup_hw(struct gk20a *g)
+{
+        u32 val;
+
+        val = nvgpu_readl(g, ctrl_virtual_channel_cfg_r(0));
+        val |= ctrl_virtual_channel_cfg_pending_enable_true_f();
+        nvgpu_writel(g, ctrl_virtual_channel_cfg_r(0), val);
+}
+
+u32 tu104_usermode_doorbell_token(struct nvgpu_channel *ch)
+{
+        struct gk20a *g = ch->g;
+        struct nvgpu_fifo *f = &g->fifo;
+        u32 hw_chid = f->channel_base + ch->chid;
+
+        return ctrl_doorbell_vector_f(hw_chid) |
+                        ctrl_doorbell_runlist_id_f(ch->runlist->id);
+}
+
+void tu104_usermode_ring_doorbell(struct nvgpu_channel *ch)
+{
+        nvgpu_log_info(ch->g, "channel ring door bell %d, runlist %d",
+                        ch->chid, ch->runlist->id);
+
+        nvgpu_usermode_writel(ch->g, func_doorbell_r(),
+                                ch->g->ops.usermode.doorbell_token(ch));
+}
+
+
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar xjf kernel_oot_modules_src.tbz2 -C /tmp/nvgpu_extract/ \
+>   "nvgpu/drivers/gpu/nvgpu/include/nvgpu/hw/tu104/hw_func_tu104.h" \
+>   "nvgpu/drivers/gpu/nvgpu/include/nvgpu/hw/tu104/hw_ctrl_tu104.h" 2>&1 && echo "=== hw_func_tu104.h ===" && cat /tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/include/nvgpu/hw/tu104/hw_func_tu104.h && echo "=== hw_ctrl_tu104.h ===" && cat /tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/include/nvgpu/hw/tu104/hw_ctrl_tu104.h
+=== hw_func_tu104.h ===
+/*
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ */
+/*
+ * Function/Macro naming determines intended use:
+ *
+ *     <x>_r(void) : Returns the offset for register <x>.
+ *
+ *     <x>_o(void) : Returns the offset for element <x>.
+ *
+ *     <x>_w(void) : Returns the word offset for word (4 byte) element <x>.
+ *
+ *     <x>_<y>_s(void) : Returns size of field <y> of register <x> in bits.
+ *
+ *     <x>_<y>_f(u32 v) : Returns a value based on 'v' which has been shifted
+ *         and masked to place it at field <y> of register <x>.  This value
+ *         can be |'d with others to produce a full register value for
+ *         register <x>.
+ *
+ *     <x>_<y>_m(void) : Returns a mask for field <y> of register <x>.  This
+ *         value can be ~'d and then &'d to clear the value of field <y> for
+ *         register <x>.
+ *
+ *     <x>_<y>_<z>_f(void) : Returns the constant value <z> after being shifted
+ *         to place it at field <y> of register <x>.  This value can be |'d
+ *         with others to produce a full register value for <x>.
+ *
+ *     <x>_<y>_v(u32 r) : Returns the value of field <y> from a full register
+ *         <x> value 'r' after being shifted to place its LSB at bit 0.
+ *         This value is suitable for direct comparison with other unshifted
+ *         values appropriate for use in field <y> of register <x>.
+ *
+ *     <x>_<y>_<z>_v(void) : Returns the constant value for <z> defined for
+ *         field <y> of register <x>.  This value is suitable for direct
+ *         comparison with unshifted values appropriate for use in field <y>
+ *         of register <x>.
+ */
+#ifndef NVGPU_HW_FUNC_TU104_H
+#define NVGPU_HW_FUNC_TU104_H
+
+#include <nvgpu/types.h>
+#include <nvgpu/static_analysis.h>
+
+#define func_full_phys_offset_v()                                  (0x00b80000U)
+#define func_doorbell_r()                                          (0x00030090U)
+#define func_cfg0_r()                                              (0x00030000U)
+#define func_priv_cpu_intr_top_en_set_r(i)\
+                (nvgpu_safe_add_u32(0x00001608U, nvgpu_safe_mult_u32((i), 4U)))
+#define func_priv_cpu_intr_top_en_clear_r(i)\
+                (nvgpu_safe_add_u32(0x00001610U, nvgpu_safe_mult_u32((i), 4U)))
+#define func_priv_cpu_intr_top_en_clear__size_1_v()                (0x00000001U)
+#define func_priv_cpu_intr_leaf_en_set_r(i)\
+                (nvgpu_safe_add_u32(0x00001200U, nvgpu_safe_mult_u32((i), 4U)))
+#define func_priv_cpu_intr_leaf_en_clear_r(i)\
+                (nvgpu_safe_add_u32(0x00001400U, nvgpu_safe_mult_u32((i), 4U)))
+#define func_priv_cpu_intr_leaf_en_clear__size_1_v()               (0x00000008U)
+#define func_priv_cpu_intr_top_r(i)\
+                (nvgpu_safe_add_u32(0x00001600U, nvgpu_safe_mult_u32((i), 4U)))
+#define func_priv_cpu_intr_top__size_1_v()                         (0x00000001U)
+#define func_priv_cpu_intr_leaf_r(i)\
+                (nvgpu_safe_add_u32(0x00001000U, nvgpu_safe_mult_u32((i), 4U)))
+#define func_priv_mmu_fault_buffer_lo_r(i)\
+                (nvgpu_safe_add_u32(0x00003000U, nvgpu_safe_mult_u32((i), 32U)))
+#define func_priv_mmu_fault_buffer_hi_r(i)\
+                (nvgpu_safe_add_u32(0x00003004U, nvgpu_safe_mult_u32((i), 32U)))
+#define func_priv_mmu_fault_buffer_get_r(i)\
+                (nvgpu_safe_add_u32(0x00003008U, nvgpu_safe_mult_u32((i), 32U)))
+#define func_priv_mmu_fault_buffer_put_r(i)\
+                (nvgpu_safe_add_u32(0x0000300cU, nvgpu_safe_mult_u32((i), 32U)))
+#define func_priv_mmu_fault_buffer_size_r(i)\
+                (nvgpu_safe_add_u32(0x00003010U, nvgpu_safe_mult_u32((i), 32U)))
+#define func_priv_mmu_fault_addr_lo_r()                            (0x00003080U)
+#define func_priv_mmu_fault_addr_hi_r()                            (0x00003084U)
+#define func_priv_mmu_fault_inst_lo_r()                            (0x00003088U)
+#define func_priv_mmu_fault_inst_hi_r()                            (0x0000308cU)
+#define func_priv_mmu_fault_info_r()                               (0x00003090U)
+#define func_priv_mmu_fault_status_r()                             (0x00003094U)
+#define func_priv_bar2_block_r()                                   (0x00000f48U)
+#define func_priv_bind_status_r()                                  (0x00000f50U)
+#define func_priv_mmu_invalidate_pdb_r()                           (0x000030a0U)
+#define func_priv_mmu_invalidate_r()                               (0x000030b0U)
+#endif
+=== hw_ctrl_tu104.h ===
+/*
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ */
+/*
+ * Function/Macro naming determines intended use:
+ *
+ *     <x>_r(void) : Returns the offset for register <x>.
+ *
+ *     <x>_o(void) : Returns the offset for element <x>.
+ *
+ *     <x>_w(void) : Returns the word offset for word (4 byte) element <x>.
+ *
+ *     <x>_<y>_s(void) : Returns size of field <y> of register <x> in bits.
+ *
+ *     <x>_<y>_f(u32 v) : Returns a value based on 'v' which has been shifted
+ *         and masked to place it at field <y> of register <x>.  This value
+ *         can be |'d with others to produce a full register value for
+ *         register <x>.
+ *
+ *     <x>_<y>_m(void) : Returns a mask for field <y> of register <x>.  This
+ *         value can be ~'d and then &'d to clear the value of field <y> for
+ *         register <x>.
+ *
+ *     <x>_<y>_<z>_f(void) : Returns the constant value <z> after being shifted
+ *         to place it at field <y> of register <x>.  This value can be |'d
+ *         with others to produce a full register value for <x>.
+ *
+ *     <x>_<y>_v(u32 r) : Returns the value of field <y> from a full register
+ *         <x> value 'r' after being shifted to place its LSB at bit 0.
+ *         This value is suitable for direct comparison with other unshifted
+ *         values appropriate for use in field <y> of register <x>.
+ *
+ *     <x>_<y>_<z>_v(void) : Returns the constant value for <z> defined for
+ *         field <y> of register <x>.  This value is suitable for direct
+ *         comparison with unshifted values appropriate for use in field <y>
+ *         of register <x>.
+ */
+#ifndef NVGPU_HW_CTRL_TU104_H
+#define NVGPU_HW_CTRL_TU104_H
+
+#include <nvgpu/types.h>
+#include <nvgpu/static_analysis.h>
+
+#define ctrl_doorbell_r(i)\
+                (nvgpu_safe_add_u32(0x00b64000U, nvgpu_safe_mult_u32((i), 8U)))
+#define ctrl_doorbell_vector_f(v)                      ((U32(v) & 0xfffU) << 0U)
+#define ctrl_doorbell_runlist_id_f(v)                  ((U32(v) & 0x7fU) << 16U)
+#define ctrl_virtual_channel_cfg_r(i)\
+                (nvgpu_safe_add_u32(0x00b65000U, nvgpu_safe_mult_u32((i), 4U)))
+#define ctrl_virtual_channel_cfg_pending_enable_true_f()           (0x80000000U)
+#define ctrl_legacy_engine_nonstall_intr_base_vectorid_r()         (0x00b66884U)
+#define ctrl_legacy_engine_nonstall_intr_base_vectorid_vector_v(r)\
+                                (((r) >> 0U) & 0xfffU)
+#endif
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar tjf kernel_oot_modules_src.tbz2 | grep -i "io_usermode\|usermode_mmap\|channel_mmap\|gpummio" | head -20
+nvgpu/drivers/gpu/nvgpu/include/nvgpu/io_usermode.h
+nvgpu/drivers/gpu/nvgpu/os/linux/io_usermode.c
+
+
+
+
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar xjf kernel_oot_modules_src.tbz2 --to-stdout "nvgpu/drivers/gpu/nvgpu/common/fifo/channel.c" 2>/dev/null | grep -n "gpummio\|setup_mmio_gpu_vas\|free_mmio_gpu_vas\|NVGPU_SUPPORT_GPU_MMIO" | head -20
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar xjf kernel_oot_modules_src.tbz2 --to-stdout "nvgpu/drivers/gpu/nvgpu/os/linux/linux-channel.c" 2>/dev/null | grep -n "gpummio\|setup_mmio_gpu_vas\|free_mmio_gpu_vas\|NVGPU_SUPPORT_GPU_MMIO\|usermode_bus_base\|bus_base" | head -30
+484:    if (nvgpu_is_enabled(g, NVGPU_SUPPORT_GPU_MMIO)) {
+485:            nvgpu_channel_free_mmio_gpu_vas(g, c);
+554:    if (nvgpu_is_enabled(g, NVGPU_SUPPORT_GPU_MMIO) &&
+556:            err = nvgpu_channel_setup_mmio_gpu_vas(g, c, gpfifo_size);
+566:    args->usermode_mmio_gpu_va = c->vm->gpummio_va;
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && (tar tjf kernel_oot_modules_src.tbz2 | grep -i "mmio_gpu_va\|channel_mmio\|channel_gpu_mmio" | head -10) && (tar xjf kernel_oot_modules_src.tbz2 --to-stdout "nvgpu/drivers/gpu/nvgpu/os/linux/linux-channel.c" 2>/dev/null | grep -n -A35 "nvgpu_channel_setup_mmio_gpu_vas\|nvgpu_channel_free_mmio_gpu_vas" | head -80)
+485:            nvgpu_channel_free_mmio_gpu_vas(g, c);
+486-    }
+487-
+488-    if (priv->usermode.gpfifo.dmabuf != NULL) {
+489-            nvgpu_mm_unpin(dev, priv->usermode.gpfifo.dmabuf,
+490-                           priv->usermode.gpfifo.attachment,
+491-                           priv->usermode.gpfifo.sgt);
+492-            dma_buf_put(priv->usermode.gpfifo.dmabuf);
+493-            priv->usermode.gpfifo.dmabuf = NULL;
+494-    }
+495-
+496-    if (priv->usermode.userd.dmabuf != NULL) {
+497-            nvgpu_mm_unpin(dev, priv->usermode.userd.dmabuf,
+498-                   priv->usermode.userd.attachment,
+499-                   priv->usermode.userd.sgt);
+500-            dma_buf_put(priv->usermode.userd.dmabuf);
+501-            priv->usermode.userd.dmabuf = NULL;
+502-    }
+503-}
+504-
+505-static int nvgpu_channel_alloc_usermode_buffers(struct nvgpu_channel *c,
+506-            struct nvgpu_setup_bind_args *args)
+507-{
+508-    struct nvgpu_channel_linux *priv = c->os_priv;
+509-    struct gk20a *g = c->g;
+510-    struct device *dev = dev_from_gk20a(g);
+511-    size_t gpfifo_size;
+512-    int err;
+513-
+514-    if (args->gpfifo_dmabuf_fd == 0 || args->userd_dmabuf_fd == 0) {
+515-            return -EINVAL;
+516-    }
+517-
+518-    if (args->gpfifo_dmabuf_offset != 0 ||
+519-                    args->userd_dmabuf_offset != 0) {
+520-            /* TODO - not yet supported */
+--
+556:            err = nvgpu_channel_setup_mmio_gpu_vas(g, c, gpfifo_size);
+557-            if (err < 0) {
+558-                    err = -ENOMEM;
+559-                    goto unmap_free_gpfifo;
+560-            }
+561-    }
+562-
+563-    args->work_submit_token = g->ops.usermode.doorbell_token(c);
+564-    args->gpfifo_gpu_va = c->gpfifo_va;
+565-    args->userd_gpu_va = c->userd_va;
+566-    args->usermode_mmio_gpu_va = c->vm->gpummio_va;
+567-
+568-    return 0;
+569-unmap_free_gpfifo:
+570-    nvgpu_dma_unmap_free(c->vm, &c->usermode_gpfifo);
+571-free_gpfifo:
+572-    nvgpu_mm_unpin(dev, priv->usermode.gpfifo.dmabuf,
+573-                   priv->usermode.gpfifo.attachment,
+574-                   priv->usermode.gpfifo.sgt);
+575-    dma_buf_put(priv->usermode.gpfifo.dmabuf);
+576-    priv->usermode.gpfifo.dmabuf = NULL;
+577-    return err;
+578-}
+579-
+580-int nvgpu_channel_init_support_linux(struct nvgpu_os_linux *l)
+581-{
+582-    struct gk20a *g = &l->g;
+583-    struct nvgpu_fifo *f = &g->fifo;
+584-    int chid;
+585-    int err;
+586-
+587-    for (chid = 0; chid < (int)f->num_channels; chid++) {
+588-            struct nvgpu_channel *ch = &f->channel[chid];
+589-
+590-            err = nvgpu_channel_alloc_linux(g, ch);
+591-            if (err)
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar xjf kernel_oot_modules_src.tbz2 --to-stdout 2>/dev/null $(tar tjf kernel_oot_modules_src.tbz2 | grep "nvgpu.*vm\.h$" | head -3) | grep -n "gpummio_va" | head -10
+477:    u64 gpummio_va;
+481:    u64 gpummio_va_mapsize;
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && for f in $(tar tjf kernel_oot_modules_src.tbz2 | grep "nvgpu.*\.c$"); do tar xjf kernel_oot_modules_src.tbz2 --to-stdout "$f" 2>/dev/null | grep -l "nvgpu_channel_setup_mmio_gpu_vas" >/dev/null 2>&1 && echo "$f"; done 2>/dev/null | head -10
+
+
+
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar xjf kernel_oot_modules_src.tbz2 -C /tmp/nvgpu_extract/ \
+>   "nvgpu/drivers/gpu/nvgpu/include/nvgpu/channel.h" 2>&1 && grep -n "gpummio\|usermode_mmio\|setup_mmio\|free_mmio\|NVGPU_SUPPORT_GPU_MMIO\|usermode_regs\|usermode_bus_base" /tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/include/nvgpu/channel.h
+254:    u64 usermode_mmio_gpu_va;
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar tjf kernel_oot_modules_src.tbz2 | xargs -I{} sh -c 'echo {}' | grep -v "\.o$" | head -3 && tar xjf kernel_oot_modules_src.tbz2 --to-stdout "nvgpu/drivers/gpu/nvgpu/include/nvgpu/channel.h" 2>/dev/null | grep -n -A2 -B2 "gpummio\|setup_mmio_gpu_vas\|free_mmio_gpu_vas\|usermode_mmio"
+Makefile
+hardware/nvidia/tegra/nv-public/
+hardware/nvidia/tegra/nv-public/overlay/
+xargs: sh: terminated by signal 13
+252-    u64 gpfifo_gpu_va;
+253-    u64 userd_gpu_va;
+254:    u64 usermode_mmio_gpu_va;
+255-    u32 flags;
+256-};
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar xjf kernel_oot_modules_src.tbz2 --to-stdout "nvgpu/drivers/gpu/nvgpu/common/fifo/channel.c" 2>/dev/null | grep -n "gpummio\|setup_mmio_gpu_vas\|free_mmio_gpu_vas\|NVGPU_SUPPORT_GPU_MMIO" | head -20
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar xjf kernel_oot_modules_src.tbz2 --to-stdout "nvgpu/drivers/gpu/nvgpu/os/linux/linux-channel.c" 2>/dev/null | grep -n "gpummio\|setup_mmio_gpu_vas\|free_mmio_gpu_vas\|NVGPU_SUPPORT_GPU_MMIO\|usermode_bus_base\|bus_base" | head -30
+484:    if (nvgpu_is_enabled(g, NVGPU_SUPPORT_GPU_MMIO)) {
+485:            nvgpu_channel_free_mmio_gpu_vas(g, c);
+554:    if (nvgpu_is_enabled(g, NVGPU_SUPPORT_GPU_MMIO) &&
+556:            err = nvgpu_channel_setup_mmio_gpu_vas(g, c, gpfifo_size);
+566:    args->usermode_mmio_gpu_va = c->vm->gpummio_va;
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && (tar tjf kernel_oot_modules_src.tbz2 | grep -i "mmio_gpu_va\|channel_mmio\|channel_gpu_mmio" | head -10) && (tar xjf kernel_oot_modules_src.tbz2 --to-stdout "nvgpu/drivers/gpu/nvgpu/os/linux/linux-channel.c" 2>/dev/null | grep -n -A35 "nvgpu_channel_setup_mmio_gpu_vas\|nvgpu_channel_free_mmio_gpu_vas" | head -80)
+485:            nvgpu_channel_free_mmio_gpu_vas(g, c);
+486-    }
+487-
+488-    if (priv->usermode.gpfifo.dmabuf != NULL) {
+489-            nvgpu_mm_unpin(dev, priv->usermode.gpfifo.dmabuf,
+490-                           priv->usermode.gpfifo.attachment,
+491-                           priv->usermode.gpfifo.sgt);
+492-            dma_buf_put(priv->usermode.gpfifo.dmabuf);
+493-            priv->usermode.gpfifo.dmabuf = NULL;
+494-    }
+495-
+496-    if (priv->usermode.userd.dmabuf != NULL) {
+497-            nvgpu_mm_unpin(dev, priv->usermode.userd.dmabuf,
+498-                   priv->usermode.userd.attachment,
+499-                   priv->usermode.userd.sgt);
+500-            dma_buf_put(priv->usermode.userd.dmabuf);
+501-            priv->usermode.userd.dmabuf = NULL;
+502-    }
+503-}
+504-
+505-static int nvgpu_channel_alloc_usermode_buffers(struct nvgpu_channel *c,
+506-            struct nvgpu_setup_bind_args *args)
+507-{
+508-    struct nvgpu_channel_linux *priv = c->os_priv;
+509-    struct gk20a *g = c->g;
+510-    struct device *dev = dev_from_gk20a(g);
+511-    size_t gpfifo_size;
+512-    int err;
+513-
+514-    if (args->gpfifo_dmabuf_fd == 0 || args->userd_dmabuf_fd == 0) {
+515-            return -EINVAL;
+516-    }
+517-
+518-    if (args->gpfifo_dmabuf_offset != 0 ||
+519-                    args->userd_dmabuf_offset != 0) {
+520-            /* TODO - not yet supported */
+--
+556:            err = nvgpu_channel_setup_mmio_gpu_vas(g, c, gpfifo_size);
+557-            if (err < 0) {
+558-                    err = -ENOMEM;
+559-                    goto unmap_free_gpfifo;
+560-            }
+561-    }
+562-
+563-    args->work_submit_token = g->ops.usermode.doorbell_token(c);
+564-    args->gpfifo_gpu_va = c->gpfifo_va;
+565-    args->userd_gpu_va = c->userd_va;
+566-    args->usermode_mmio_gpu_va = c->vm->gpummio_va;
+567-
+568-    return 0;
+569-unmap_free_gpfifo:
+570-    nvgpu_dma_unmap_free(c->vm, &c->usermode_gpfifo);
+571-free_gpfifo:
+572-    nvgpu_mm_unpin(dev, priv->usermode.gpfifo.dmabuf,
+573-                   priv->usermode.gpfifo.attachment,
+574-                   priv->usermode.gpfifo.sgt);
+575-    dma_buf_put(priv->usermode.gpfifo.dmabuf);
+576-    priv->usermode.gpfifo.dmabuf = NULL;
+577-    return err;
+578-}
+579-
+580-int nvgpu_channel_init_support_linux(struct nvgpu_os_linux *l)
+581-{
+582-    struct gk20a *g = &l->g;
+583-    struct nvgpu_fifo *f = &g->fifo;
+584-    int chid;
+585-    int err;
+586-
+587-    for (chid = 0; chid < (int)f->num_channels; chid++) {
+588-            struct nvgpu_channel *ch = &f->channel[chid];
+589-
+590-            err = nvgpu_channel_alloc_linux(g, ch);
+591-            if (err)
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar xjf kernel_oot_modules_src.tbz2 --to-stdout 2>/dev/null $(tar tjf kernel_oot_modules_src.tbz2 | grep "nvgpu.*vm\.h$" | head -3) | grep -n "gpummio_va" | head -10
+477:    u64 gpummio_va;
+481:    u64 gpummio_va_mapsize;
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && for f in $(tar tjf kernel_oot_modules_src.tbz2 | grep "nvgpu.*\.c$"); do tar xjf kernel_oot_modules_src.tbz2 --to-stdout "$f" 2>/dev/null | grep -l "nvgpu_channel_setup_mmio_gpu_vas" >/dev/null 2>&1 && echo "$f"; done 2>/dev/null | head -10
+^C
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar tjf kernel_oot_modules_src.tbz2 | grep "nvgpu" | grep -E "(vm|channel|mmio).*\.c$" | grep -v "vgpu\|posix\|qnx\|test\|igpu" | head -15
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar tjf kernel_oot_modules_src.tbz2 2>/dev/null | grep "setup_mmio_gpu_vas\|gpummio" | head -10
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar xjf kernel_oot_modules_src.tbz2 -C /tmp/nvgpu_extract/ \
+>   "nvgpu/drivers/gpu/nvgpu/common/mm/vm.c" \
+>   "nvgpu/drivers/gpu/nvgpu/common/fifo/channel.c" 2>&1 && grep -rn "setup_mmio_gpu_vas\|gpummio_va\|bus_base\|usermode_bus" /tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/common/ | head -20
+/tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/common/mm/vm.c:949:  if (vm->gpummio_va != 0U) {
+/tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/common/mm/vm.c:950:          nvgpu_gmmu_unmap_va(vm, vm->gpummio_va,
+/tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/common/mm/vm.c:951:                          vm->gpummio_va_mapsize);
+/tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/common/mm/vm.c:953:          vm->gpummio_va = 0U;
+/tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/common/mm/vm.c:954:          vm->gpummio_va_mapsize = 0U;
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  grep -rn "setup_mmio_gpu_vas\|free_mmio_gpu_vas\|gpummio_va" /tmp/nvgpu_extract/ | head -30
+/tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/common/mm/vm.c:949:  if (vm->gpummio_va != 0U) {
+/tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/common/mm/vm.c:950:          nvgpu_gmmu_unmap_va(vm, vm->gpummio_va,
+/tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/common/mm/vm.c:951:                          vm->gpummio_va_mapsize);
+/tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/common/mm/vm.c:953:          vm->gpummio_va = 0U;
+/tmp/nvgpu_extract/nvgpu/drivers/gpu/nvgpu/common/mm/vm.c:954:          vm->gpummio_va_mapsize = 0U;
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar tjf kernel_oot_modules_src.tbz2 2>/dev/null | grep "fifo_usermode\|channel_wdt\|submit_gk20a\|usermode.*submit" | head -10
+nvgpu/drivers/gpu/nvgpu/common/fifo/channel_wdt.c
+nvgpu/drivers/gpu/nvgpu/common/fifo/channel_wdt.h
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar tjf kernel_oot_modules_src.tbz2 2>/dev/null | grep "nvgpu/drivers/gpu/nvgpu/common/fifo/" | head -30
+nvgpu/drivers/gpu/nvgpu/common/fifo/
+nvgpu/drivers/gpu/nvgpu/common/fifo/submit.c
+nvgpu/drivers/gpu/nvgpu/common/fifo/job.c
+nvgpu/drivers/gpu/nvgpu/common/fifo/userd.c
+nvgpu/drivers/gpu/nvgpu/common/fifo/watchdog.c
+nvgpu/drivers/gpu/nvgpu/common/fifo/engines.c
+nvgpu/drivers/gpu/nvgpu/common/fifo/channel_wdt.c
+nvgpu/drivers/gpu/nvgpu/common/fifo/channel.c
+nvgpu/drivers/gpu/nvgpu/common/fifo/pbdma.c
+nvgpu/drivers/gpu/nvgpu/common/fifo/pbdma_status.c
+nvgpu/drivers/gpu/nvgpu/common/fifo/tsg_subctx_priv.h
+nvgpu/drivers/gpu/nvgpu/common/fifo/fifo.c
+nvgpu/drivers/gpu/nvgpu/common/fifo/tsg_subctx.c
+nvgpu/drivers/gpu/nvgpu/common/fifo/channel_wdt.h
+nvgpu/drivers/gpu/nvgpu/common/fifo/channel_worker.c
+nvgpu/drivers/gpu/nvgpu/common/fifo/priv_cmdbuf.c
+nvgpu/drivers/gpu/nvgpu/common/fifo/engine_status.c
+nvgpu/drivers/gpu/nvgpu/common/fifo/runlist.c
+nvgpu/drivers/gpu/nvgpu/common/fifo/preempt.c
+nvgpu/drivers/gpu/nvgpu/common/fifo/tsg.c
+nvgpu/drivers/gpu/nvgpu/common/fifo/channel_worker.h
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar xjf kernel_oot_modules_src.tbz2 --to-stdout "nvgpu/drivers/gpu/nvgpu/os/linux/linux-channel.c" 2>/dev/null | grep -n -B2 -A30 "nvgpu_channel_setup_mmio_gpu_vas"
+554-    if (nvgpu_is_enabled(g, NVGPU_SUPPORT_GPU_MMIO) &&
+555-            ((args->flags & NVGPU_SETUP_BIND_FLAGS_USERMODE_GPU_MAP_RESOURCES_SUPPORT) != 0U)) {
+556:            err = nvgpu_channel_setup_mmio_gpu_vas(g, c, gpfifo_size);
+557-            if (err < 0) {
+558-                    err = -ENOMEM;
+559-                    goto unmap_free_gpfifo;
+560-            }
+561-    }
+562-
+563-    args->work_submit_token = g->ops.usermode.doorbell_token(c);
+564-    args->gpfifo_gpu_va = c->gpfifo_va;
+565-    args->userd_gpu_va = c->userd_va;
+566-    args->usermode_mmio_gpu_va = c->vm->gpummio_va;
+567-
+568-    return 0;
+569-unmap_free_gpfifo:
+570-    nvgpu_dma_unmap_free(c->vm, &c->usermode_gpfifo);
+571-free_gpfifo:
+572-    nvgpu_mm_unpin(dev, priv->usermode.gpfifo.dmabuf,
+573-                   priv->usermode.gpfifo.attachment,
+574-                   priv->usermode.gpfifo.sgt);
+575-    dma_buf_put(priv->usermode.gpfifo.dmabuf);
+576-    priv->usermode.gpfifo.dmabuf = NULL;
+577-    return err;
+578-}
+579-
+580-int nvgpu_channel_init_support_linux(struct nvgpu_os_linux *l)
+581-{
+582-    struct gk20a *g = &l->g;
+583-    struct nvgpu_fifo *f = &g->fifo;
+584-    int chid;
+585-    int err;
+586-
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar xjf kernel_oot_modules_src.tbz2 --to-stdout "nvgpu/drivers/gpu/nvgpu/common/mm/vm.c" 2>/dev/null | grep -n -B2 -A40 "setup_mmio_gpu_vas\|bus_base.*usermode"
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar xjf kernel_oot_modules_src.tbz2 --to-stdout "nvgpu/drivers/gpu/nvgpu/common/fifo/channel.c" 2>/dev/null | grep -n -B2 -A40 "setup_mmio_gpu_vas\|free_mmio_gpu_vas"
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar tjf kernel_oot_modules_src.tbz2 2>/dev/null | grep "nvgpu/drivers.*common/mm.*\.c$" | head -20
+nvgpu/drivers/gpu/nvgpu/common/mm/vm_area.c
+nvgpu/drivers/gpu/nvgpu/common/mm/allocators/buddy_allocator.c
+nvgpu/drivers/gpu/nvgpu/common/mm/allocators/bitmap_allocator.c
+nvgpu/drivers/gpu/nvgpu/common/mm/allocators/page_allocator.c
+nvgpu/drivers/gpu/nvgpu/common/mm/allocators/nvgpu_allocator.c
+nvgpu/drivers/gpu/nvgpu/common/mm/vm_remap.c
+nvgpu/drivers/gpu/nvgpu/common/mm/as.c
+nvgpu/drivers/gpu/nvgpu/common/mm/nvgpu_sgt.c
+nvgpu/drivers/gpu/nvgpu/common/mm/gmmu/pd_cache.c
+nvgpu/drivers/gpu/nvgpu/common/mm/gmmu/pte.c
+nvgpu/drivers/gpu/nvgpu/common/mm/gmmu/page_table.c
+nvgpu/drivers/gpu/nvgpu/common/mm/ipa_pa_cache.c
+nvgpu/drivers/gpu/nvgpu/common/mm/dma.c
+nvgpu/drivers/gpu/nvgpu/common/mm/mm.c
+nvgpu/drivers/gpu/nvgpu/common/mm/nvgpu_mem.c
+nvgpu/drivers/gpu/nvgpu/common/mm/vidmem.c
+nvgpu/drivers/gpu/nvgpu/common/mm/comptags.c
+nvgpu/drivers/gpu/nvgpu/common/mm/vm.c
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && for f in nvgpu/drivers/gpu/nvgpu/common/mm/vm_area.c nvgpu/drivers/gpu/nvgpu/common/mm/as.c nvgpu/drivers/gpu/nvgpu/common/mm/mm.c nvgpu/drivers/gpu/nvgpu/common/mm/dma.c; do echo "--- $f ---"; tar xjf kernel_oot_modules_src.tbz2 --to-stdout "$f" 2>/dev/null | grep -c "setup_mmio_gpu_vas"; done
+--- nvgpu/drivers/gpu/nvgpu/common/mm/vm_area.c ---
+0
+--- nvgpu/drivers/gpu/nvgpu/common/mm/as.c ---
+0
+--- nvgpu/drivers/gpu/nvgpu/common/mm/mm.c ---
+0
+--- nvgpu/drivers/gpu/nvgpu/common/mm/dma.c ---
+0
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar tjf kernel_oot_modules_src.tbz2 2>/dev/null | grep "nvgpu/drivers.*hal/fifo/channel_ga10b" | head -10
+nvgpu/drivers/gpu/nvgpu/hal/fifo/channel_ga10b_fusa.c
+nvgpu/drivers/gpu/nvgpu/hal/fifo/channel_ga10b.h
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ && tar xjf kernel_oot_modules_src.tbz2 --to-stdout "nvgpu/drivers/gpu/nvgpu/hal/fifo/channel_ga10b_fusa.c" 2>/dev/null | grep -n "setup_mmio_gpu_vas\|gpummio\|bus_base"
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu && grep -rn "ring_doorbell\|doorbell_token\|usermode_doorbell" --include="*.c" --include="*.h" | head -50
+drivers/gpu/nvgpu/os/linux/linux-channel.c:563: args->work_submit_token = g->ops.usermode.doorbell_token(c);
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu && grep -rn "ops\.usermode\." --include="*.c" --include="*.h" | head -50
+drivers/gpu/nvgpu/common/mm/gmmu/page_table.c:243:              virtual_func_offset = g->ops.usermode.base(g);
+drivers/gpu/nvgpu/os/linux/ioctl_ctrl.c:2840:   if (g->ops.usermode.base == NULL)
+drivers/gpu/nvgpu/os/linux/linux-channel.c:563: args->work_submit_token = g->ops.usermode.doorbell_token(c);
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu && grep -rn "usermode" --include="*.c" --include="*.h" -l
+drivers/gpu/nvgpu/common/mm/gmmu/page_table.c
+drivers/gpu/nvgpu/common/fifo/channel.c
+drivers/gpu/nvgpu/os/linux/ioctl_channel.c
+drivers/gpu/nvgpu/os/linux/ioctl_ctrl.c
+drivers/gpu/nvgpu/os/linux/ioctl_ctrl.h
+drivers/gpu/nvgpu/os/linux/linux-channel.c
+include/uapi/linux/nvgpu.h
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu && grep -rn "\.doorbell_token\b\|\.base\b.*usermode\|hal_usermode\|usermode_init\|gops.*usermode" --include="*.c" --include="*.h" | head -30
+drivers/gpu/nvgpu/os/linux/linux-channel.c:563: args->work_submit_token = g->ops.usermode.doorbell_token(c);
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu && grep -n "usermode" include/uapi/linux/nvgpu.h
+952:    __u64 buffer_ptr;       /* in: usermode pointer to receive the
+1089: * Enable usermode submits on this channel.
+1091: * Submits in usermode are supported in some environments. If supported and
+1093: * token is passed back to be written in the doorbell register in the usermode
+1100: * Map usermode resources to GPU and return GPU VAs to userspace.
+1111:   __u64 usermode_mmio_gpu_va; /* out */
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu && grep -n "usermode" drivers/gpu/nvgpu/os/linux/ioctl_ctrl.c | head -20
+2816:static void usermode_vma_close(struct vm_area_struct *vma)
+2823:   priv->usermode_vma.vma = NULL;
+2824:   priv->usermode_vma.vma_mapped = false;
+2828:struct vm_operations_struct usermode_vma_ops = {
+2830:   .close = usermode_vma_close,
+2840:   if (g->ops.usermode.base == NULL)
+2843:   if (priv->usermode_vma.vma != NULL)
+2867:   vma->vm_ops = &usermode_vma_ops;
+2871:                   g->usermode_regs_bus_addr >> PAGE_SHIFT,
+2874:           priv->usermode_vma.vma = vma;
+2876:           priv->usermode_vma.vma_mapped = true;
+2885:static int alter_usermode_mapping(struct gk20a *g,
+2889:   struct vm_area_struct *vma = priv->usermode_vma.vma;
+2890:   bool vma_mapped = priv->usermode_vma.vma_mapped;
+2909:    * mmap_lock while holding ctrl_privs_lock. usermode_vma_close
+2929:                   priv->usermode_vma.vma_mapped = false;
+2931:                   nvgpu_err(g, "can't remove usermode mapping");
+2935:                           g->usermode_regs_bus_addr >> PAGE_SHIFT,
+2938:                   nvgpu_err(g, "can't restore usermode mapping");
+2940:                   priv->usermode_vma.vma_mapped = true;
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu && grep -n "usermode_regs_bus_addr\|usermode.*base\|usermode.*doorbell" --include="*.c" --include="*.h" -r | head -20
+drivers/gpu/nvgpu/common/mm/gmmu/page_table.c:243:              virtual_func_offset = g->ops.usermode.base(g);
+drivers/gpu/nvgpu/os/linux/ioctl_ctrl.c:2840:   if (g->ops.usermode.base == NULL)
+drivers/gpu/nvgpu/os/linux/ioctl_ctrl.c:2871:                   g->usermode_regs_bus_addr >> PAGE_SHIFT,
+drivers/gpu/nvgpu/os/linux/ioctl_ctrl.c:2935:                           g->usermode_regs_bus_addr >> PAGE_SHIFT,
+drivers/gpu/nvgpu/os/linux/linux-channel.c:563: args->work_submit_token = g->ops.usermode.doorbell_token(c);
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu && grep -rn "mmap" drivers/gpu/nvgpu/os/linux/ioctl_ctrl.c | head -20
+2833:int gk20a_ctrl_dev_mmap(struct file *filp, struct vm_area_struct *vma)
+2894:           /* Nothing to do - no mmap called */
+2909:    * mmap_lock while holding ctrl_privs_lock. usermode_vma_close
+2913:   if (!down_write_trylock(&vma->vm_mm->mmap_lock)) {
+2915:   if (!down_write_trylock(&vma->vm_mm->mmap_sem)) {
+2945:   up_write(&vma->vm_mm->mmap_lock);
+2947:   up_write(&vma->vm_mm->mmap_sem);
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu && grep -rn "doorbell\|NOTIFY\|work_submit\|usermode_reg" --include="*.h" | head -30
+include/uapi/linux/nvgpu.h:1093: * token is passed back to be written in the doorbell register in the usermode
+include/uapi/linux/nvgpu.h:1106:        __u32 work_submit_token; /* out */
+include/uapi/linux/nvgpu.h:1199:#define NVGPU_CHANNEL_GR_ERROR_SW_NOTIFY                13
+include/uapi/linux/nvgpu.h:1202:#define NVGPU_CHANNEL_GR_ILLEGAL_NOTIFY                 25
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu && find . -path "*/hal/*usermode*" -o -path "*/hw/*usermode*" 2>/dev/null
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+l4t-sources/nvgpu]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu && grep -rn "ops\.usermode\." --include="*.c" --include="*.h" | head -50
+drivers/gpu/nvgpu/common/mm/gmmu/page_table.c:243:              virtual_func_offset = g->ops.usermode.base(g);
+drivers/gpu/nvgpu/os/linux/ioctl_ctrl.c:2840:   if (g->ops.usermode.base == NULL)
+drivers/gpu/nvgpu/os/linux/linux-channel.c:563: args->work_submit_token = g->ops.usermode.doorbell_token(c);
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu && grep -rn "usermode" --include="*.c" --include="*.h" -l
+drivers/gpu/nvgpu/common/mm/gmmu/page_table.c
+drivers/gpu/nvgpu/common/fifo/channel.c
+drivers/gpu/nvgpu/os/linux/ioctl_channel.c
+drivers/gpu/nvgpu/os/linux/ioctl_ctrl.c
+drivers/gpu/nvgpu/os/linux/ioctl_ctrl.h
+drivers/gpu/nvgpu/os/linux/linux-channel.c
+include/uapi/linux/nvgpu.h
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu && grep -rn "\.doorbell_token\b\|\.base\b.*usermode\|hal_usermode\|usermode_init\|gops.*usermode" --include="*.c" --include="*.h" | head -30
+drivers/gpu/nvgpu/os/linux/linux-channel.c:563: args->work_submit_token = g->ops.usermode.doorbell_token(c);
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu && grep -n "usermode" include/uapi/linux/nvgpu.h
+952:    __u64 buffer_ptr;       /* in: usermode pointer to receive the
+1089: * Enable usermode submits on this channel.
+1091: * Submits in usermode are supported in some environments. If supported and
+1093: * token is passed back to be written in the doorbell register in the usermode
+1100: * Map usermode resources to GPU and return GPU VAs to userspace.
+1111:   __u64 usermode_mmio_gpu_va; /* out */
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu && grep -n "usermode" drivers/gpu/nvgpu/os/linux/ioctl_ctrl.c | head -20
+2816:static void usermode_vma_close(struct vm_area_struct *vma)
+2823:   priv->usermode_vma.vma = NULL;
+2824:   priv->usermode_vma.vma_mapped = false;
+2828:struct vm_operations_struct usermode_vma_ops = {
+2830:   .close = usermode_vma_close,
+2840:   if (g->ops.usermode.base == NULL)
+2843:   if (priv->usermode_vma.vma != NULL)
+2867:   vma->vm_ops = &usermode_vma_ops;
+2871:                   g->usermode_regs_bus_addr >> PAGE_SHIFT,
+2874:           priv->usermode_vma.vma = vma;
+2876:           priv->usermode_vma.vma_mapped = true;
+2885:static int alter_usermode_mapping(struct gk20a *g,
+2889:   struct vm_area_struct *vma = priv->usermode_vma.vma;
+2890:   bool vma_mapped = priv->usermode_vma.vma_mapped;
+2909:    * mmap_lock while holding ctrl_privs_lock. usermode_vma_close
+2929:                   priv->usermode_vma.vma_mapped = false;
+2931:                   nvgpu_err(g, "can't remove usermode mapping");
+2935:                           g->usermode_regs_bus_addr >> PAGE_SHIFT,
+2938:                   nvgpu_err(g, "can't restore usermode mapping");
+2940:                   priv->usermode_vma.vma_mapped = true;
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu && grep -n "usermode_regs_bus_addr\|usermode.*base\|usermode.*doorbell" --include="*.c" --include="*.h" -r | head -20
+drivers/gpu/nvgpu/common/mm/gmmu/page_table.c:243:              virtual_func_offset = g->ops.usermode.base(g);
+drivers/gpu/nvgpu/os/linux/ioctl_ctrl.c:2840:   if (g->ops.usermode.base == NULL)
+drivers/gpu/nvgpu/os/linux/ioctl_ctrl.c:2871:                   g->usermode_regs_bus_addr >> PAGE_SHIFT,
+drivers/gpu/nvgpu/os/linux/ioctl_ctrl.c:2935:                           g->usermode_regs_bus_addr >> PAGE_SHIFT,
+drivers/gpu/nvgpu/os/linux/linux-channel.c:563: args->work_submit_token = g->ops.usermode.doorbell_token(c);
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu && grep -rn "mmap" drivers/gpu/nvgpu/os/linux/ioctl_ctrl.c | head -20
+2833:int gk20a_ctrl_dev_mmap(struct file *filp, struct vm_area_struct *vma)
+2894:           /* Nothing to do - no mmap called */
+2909:    * mmap_lock while holding ctrl_privs_lock. usermode_vma_close
+2913:   if (!down_write_trylock(&vma->vm_mm->mmap_lock)) {
+2915:   if (!down_write_trylock(&vma->vm_mm->mmap_sem)) {
+2945:   up_write(&vma->vm_mm->mmap_lock);
+2947:   up_write(&vma->vm_mm->mmap_sem);
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu && grep -rn "doorbell\|NOTIFY\|work_submit\|usermode_reg" --include="*.h" | head -30
+include/uapi/linux/nvgpu.h:1093: * token is passed back to be written in the doorbell register in the usermode
+include/uapi/linux/nvgpu.h:1106:        __u32 work_submit_token; /* out */
+include/uapi/linux/nvgpu.h:1199:#define NVGPU_CHANNEL_GR_ERROR_SW_NOTIFY                13
+include/uapi/linux/nvgpu.h:1202:#define NVGPU_CHANNEL_GR_ILLEGAL_NOTIFY                 25
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu && find . -path "*/hal/*usermode*" -o -path "*/hw/*usermode*" 2>/dev/null
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu]$  cd /home/agent/jetpack-nixos/examples/tinygrad && nix develop --command python3 test_nvgpu.py 2>&1 | tail -80
+    Correctness:    PASS
+
+  === Performance Summary ===
+    WRITE_COMBINE (flags=1): write=0.33ms read=1.43ms ✓
+    CACHEABLE (flags=5): write=0.33ms read=1.44ms ✓
+    UNCACHEABLE (flags=0): write=1.46ms read=13.13ms ✓
+    INNER_CACHEABLE (flags=2): write=0.38ms read=0.09ms ✓
+
+  ✓ Cacheability flags test PASSED
+
+============================================================
+PHASE 3: Command Submission — GPFIFO, QMD, compute dispatch
+============================================================
+
+============================================================
+TEST 12: MMAP USERD + GPFIFO BUFFERS
+============================================================
+  userd mmap:       OK, 4096 bytes, fd=10
+  GPGet:            0
+  GPPut:            0
+  GPFIFO mmap:      OK, 8192 bytes, fd=9
+  GPFIFO non-zero:  0 bytes (should be 0)
+  Doorbell mmap:    OK, ctrl_fd=4, offset 0x90
+
+  ✓ USERD + GPFIFO mmap PASSED
+
+============================================================
+TEST 13: GPFIFO SEMAPHORE RELEASE
+============================================================
+  Semaphore buffer: gpu_va=0x00ffffa01000
+  Push buffer:      10 words (40 bytes)
+  Push buffer VA:   0x00ffffa02000
+  Sem addr:         0x00ffffa01000
+  Expected value:   0x42
+  Waiting for GPU...
+  Semaphore value:  0x42 (match! took 1.1ms)
+
+  ✓ GPFIFO SEMAPHORE RELEASE PASSED
+
+============================================================
+TEST 14: NVRTC SHADER COMPILATION
+============================================================
+  Kernel source:    test_kernel(float *out)
+  Target arch:      sm_87
+  CUBIN size:       2984 bytes
+  .text offset:     0x580
+  .text size:       640 bytes
+  Register count:   16
+  Shared memory:    0 bytes
+  SASS preview:     0c 7c 00 ff 02 00 00 00 70 50 f0 0b 00 da 0f 00
+
+  ✓ NVRTC COMPILATION PASSED
+
+============================================================
+TEST 15: FULL COMPUTE DISPATCH
+============================================================
+  Shader buffer:    gpu_va=0x00ffffa04000, size=8192
+  Program address:  0x00ffffa04580 (.text offset=0x580)
+  Output buffer:    gpu_va=0x00ffffa03000, size=4096
+  Const buffer:     gpu_va=0x00ffffa06000
+  Kernel arg @0x160: output_buf VA = 0x00ffffa03000
+  QMD buffer:       gpu_va=0x00ffffa08000
+  QMD registers:    16
+  QMD shmem:        1024
+  QMD grid:         1x1x1
+  QMD threads:      32x1x1
+  Push buffer:      14 words, gpu_va=0x00ffffa09000
+
+  Submitting to GPFIFO...
+  ✗ TIMEOUT after 5000ms: sem=0x0 (expected 0xdead)
+  GPGet=2, GPPut=2
+
+  ✗ COMPUTE DISPATCH FAILED
+
+============================================================
+Results: 14/15 tests passed
+
+Phase 1+2: PASSED  Phase 3: 3/4 tests passed
+Some tests failed — check errors above
+============================================================
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  dmesg | grep -i "nvgpu\|fault\|mmu\|error\|tegra" | tail -20
+dmesg: read kernel buffer failed: Operation not permitted
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  sudo dmesg | grep -i "nvgpu\|fault\|mmu\|error\|gpu" | tail -30
+[20985.496907] pc : tu104_gr_init_commit_rtv_cb+0x68/0x78 [nvgpu]
+[20985.497240] lr : tu104_gr_init_commit_rtv_cb+0x30/0x78 [nvgpu]
+[20985.497624]  tu104_gr_init_commit_rtv_cb+0x68/0x78 [nvgpu]
+[20985.497945]  nvgpu_gr_obj_ctx_commit_global_ctx_buffers+0x200/0x24c [nvgpu]
+[20985.498268]  nvgpu_gr_obj_ctx_alloc+0x110/0x38c [nvgpu]
+[20985.498583]  nvgpu_gr_setup_alloc_obj_ctx+0x1d4/0x4e0 [nvgpu]
+[20985.498895]  gk20a_channel_ioctl+0x62c/0x1840 [nvgpu]
+[21144.750071] WARNING: CPU: 1 PID: 91708 at /build/l4t-oot-sources/nvgpu/drivers/gpu/nvgpu/hal/gr/init/gr_init_tu104.c:191 tu104_gr_init_commit_rtv_cb+0x68/0x78 [nvgpu]
+[21144.750447] Modules linked in: ip6_tables 8021q ip_tables garp mrp stp llc xt_conntrack nf_conntrack nf_defrag_ipv6 nf_defrag_ipv4 ip6t_rpfilter ipt_rpfilter xt_pkttype xt_LOG nf_log_syslog xt_tcpudp nft_compat x_tables nft_counter nf_tables libcrc32c nvgpu(O) snd_soc_tegra186_asrc(O) snd_soc_tegra210_ope(O) snd_soc_tegra210_afc(O) snd_soc_tegra210_admaif(O) snd_soc_tegra210_mixer(O) snd_soc_tegra186_dspk(O) snd_soc_tegra210_mvc(O) snd_soc_tegra186_arad(O) snd_soc_tegra_pcm snd_soc_tegra210_dmic(O) snd_soc_tegra210_adx(O) snd_soc_tegra210_sfc(O) snd_soc_tegra210_amx(O) snd_soc_tegra210_i2s(O) snd_soc_tegra210_ahub(O) tegra210_adma nvvrs_pseq_rtc(O) spidev rtl8822ce(O) snd_soc_tegra_machine_driver(O) snd_soc_tegra_utils(O) nls_iso8859_1 rtk_btusb(O) snd_soc_tegra_audio_graph_card nls_cp437 snd_soc_audio_graph_card crct10dif_ce nvidia(O) btusb snd_soc_simple_card_utils tegra23x_perf_uncore(O) rtw88_8822ce btrtl btintel tegra234_oc_event(O) rtw88_8822c rtw88_pci btbcm rtw88_core ina3221
+[21144.750692] pc : tu104_gr_init_commit_rtv_cb+0x68/0x78 [nvgpu]
+[21144.751034] lr : tu104_gr_init_commit_rtv_cb+0x30/0x78 [nvgpu]
+[21144.751429]  tu104_gr_init_commit_rtv_cb+0x68/0x78 [nvgpu]
+[21144.751754]  nvgpu_gr_obj_ctx_commit_global_ctx_buffers+0x200/0x24c [nvgpu]
+[21144.752077]  nvgpu_gr_obj_ctx_alloc+0x110/0x38c [nvgpu]
+[21144.752392]  nvgpu_gr_setup_alloc_obj_ctx+0x1d4/0x4e0 [nvgpu]
+[21144.752703]  gk20a_channel_ioctl+0x62c/0x1840 [nvgpu]
+[21918.577892] WARNING: CPU: 6 PID: 93588 at /build/l4t-oot-sources/nvgpu/drivers/gpu/nvgpu/hal/gr/init/gr_init_tu104.c:191 tu104_gr_init_commit_rtv_cb+0x68/0x78 [nvgpu]
+[21918.578258] Modules linked in: ip6_tables 8021q ip_tables garp mrp stp llc xt_conntrack nf_conntrack nf_defrag_ipv6 nf_defrag_ipv4 ip6t_rpfilter ipt_rpfilter xt_pkttype xt_LOG nf_log_syslog xt_tcpudp nft_compat x_tables nft_counter nf_tables libcrc32c nvgpu(O) snd_soc_tegra186_asrc(O) snd_soc_tegra210_ope(O) snd_soc_tegra210_afc(O) snd_soc_tegra210_admaif(O) snd_soc_tegra210_mixer(O) snd_soc_tegra186_dspk(O) snd_soc_tegra210_mvc(O) snd_soc_tegra186_arad(O) snd_soc_tegra_pcm snd_soc_tegra210_dmic(O) snd_soc_tegra210_adx(O) snd_soc_tegra210_sfc(O) snd_soc_tegra210_amx(O) snd_soc_tegra210_i2s(O) snd_soc_tegra210_ahub(O) tegra210_adma nvvrs_pseq_rtc(O) spidev rtl8822ce(O) snd_soc_tegra_machine_driver(O) snd_soc_tegra_utils(O) nls_iso8859_1 rtk_btusb(O) snd_soc_tegra_audio_graph_card nls_cp437 snd_soc_audio_graph_card crct10dif_ce nvidia(O) btusb snd_soc_simple_card_utils tegra23x_perf_uncore(O) rtw88_8822ce btrtl btintel tegra234_oc_event(O) rtw88_8822c rtw88_pci btbcm rtw88_core ina3221
+[21918.578501] pc : tu104_gr_init_commit_rtv_cb+0x68/0x78 [nvgpu]
+[21918.578832] lr : tu104_gr_init_commit_rtv_cb+0x30/0x78 [nvgpu]
+[21918.579212]  tu104_gr_init_commit_rtv_cb+0x68/0x78 [nvgpu]
+[21918.579531]  nvgpu_gr_obj_ctx_commit_global_ctx_buffers+0x200/0x24c [nvgpu]
+[21918.579853]  nvgpu_gr_obj_ctx_alloc+0x110/0x38c [nvgpu]
+[21918.580165]  nvgpu_gr_setup_alloc_obj_ctx+0x1d4/0x4e0 [nvgpu]
+[21918.580473]  gk20a_channel_ioctl+0x62c/0x1840 [nvgpu]
+[21919.687362] nvgpu: 17000000.gpu nvgpu_cic_mon_report_err_safety_services:97   [ERR]  Error reporting is not supported in this platform
+[21919.687372] nvgpu: 17000000.gpu gm20b_gr_intr_check_gr_sked_exception:147  [ERR]  sked exception: esr 0x01000000
+[21919.687375] nvgpu: 17000000.gpu gr_intr_handle_exception_interrupts:759  [ERR]  set gr exception notifier
+[21919.702703] nvgpu: 17000000.gpu              gv11b_ce_halt_engine:170  [ERR]  The CE engine 0 is not idlewhile reset
+[21919.702726] nvgpu: 17000000.gpu              gv11b_ce_halt_engine:170  [ERR]  The CE engine 1 is not idlewhile reset
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$ 
+
+
+
+
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  cd /home/agent/jetpack-nixos/examples/tinygrad/tinygrad && grep -n "qmd_v03_00\|QMD_V03\|program_address_lower\|register_count_v\|cta_thread_dimension0\|qmd_major_version\|shared_memory_size\|constant_buffer_addr\|constant_buffer_valid\|barrier_count\|sass_version" tinygrad/runtime/autogen/nv_570.py | head -40
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/tinygrad]$  grep -ni "program_address_lower\|register_count\|cta_thread_dimension0\|qmd_major_version\|shared_memory_size\|barrier_count\|sass_version\|constant_buffer" /home/agent/jetpack-nixos/examples/tinygrad/tinygrad/tinygrad/runtime/autogen/nv_570.py | head -50
+13109:NVC6C0_QMDV02_03_SHARED_MEMORY_SIZE = (561, 544) # type: ignore
+13113:NVC6C0_QMDV02_03_QMD_MAJOR_VERSION = (583, 580) # type: ignore
+13115:NVC6C0_QMDV02_03_CTA_THREAD_DIMENSION0 = (607, 592) # type: ignore
+13118:NVC6C0_QMDV02_03_CONSTANT_BUFFER_VALID = lambda i: ((640+(i)*1), (640+(i)*1)) # type: ignore
+13119:NVC6C0_QMDV02_03_CONSTANT_BUFFER_VALID_FALSE = 0x00000000 # type: ignore
+13120:NVC6C0_QMDV02_03_CONSTANT_BUFFER_VALID_TRUE = 0x00000001 # type: ignore
+13121:NVC6C0_QMDV02_03_REGISTER_COUNT_V = (656, 648) # type: ignore
+13174:NVC6C0_QMDV02_03_BARRIER_COUNT = (959, 955) # type: ignore
+13176:NVC6C0_QMDV02_03_REGISTER_COUNT = (991, 984) # type: ignore
+13180:NVC6C0_QMDV02_03_SASS_VERSION = (1023, 1016) # type: ignore
+13181:NVC6C0_QMDV02_03_CONSTANT_BUFFER_ADDR_LOWER = lambda i: ((1055+(i)*64), (1024+(i)*64)) # type: ignore
+13182:NVC6C0_QMDV02_03_CONSTANT_BUFFER_ADDR_UPPER = lambda i: ((1072+(i)*64), (1056+(i)*64)) # type: ignore
+13183:NVC6C0_QMDV02_03_CONSTANT_BUFFER_PREFETCH_POST = lambda i: ((1073+(i)*64), (1073+(i)*64)) # type: ignore
+13184:NVC6C0_QMDV02_03_CONSTANT_BUFFER_PREFETCH_POST_FALSE = 0x00000000 # type: ignore
+13185:NVC6C0_QMDV02_03_CONSTANT_BUFFER_PREFETCH_POST_TRUE = 0x00000001 # type: ignore
+13186:NVC6C0_QMDV02_03_CONSTANT_BUFFER_INVALIDATE = lambda i: ((1074+(i)*64), (1074+(i)*64)) # type: ignore
+13187:NVC6C0_QMDV02_03_CONSTANT_BUFFER_INVALIDATE_FALSE = 0x00000000 # type: ignore
+13188:NVC6C0_QMDV02_03_CONSTANT_BUFFER_INVALIDATE_TRUE = 0x00000001 # type: ignore
+13189:NVC6C0_QMDV02_03_CONSTANT_BUFFER_SIZE_SHIFTED4 = lambda i: ((1087+(i)*64), (1075+(i)*64)) # type: ignore
+13190:NVC6C0_QMDV02_03_PROGRAM_ADDRESS_LOWER = (1567, 1536) # type: ignore
+13331:NVC6C0_QMDV02_04_SHARED_MEMORY_SIZE = (561, 544) # type: ignore
+13335:NVC6C0_QMDV02_04_QMD_MAJOR_VERSION = (583, 580) # type: ignore
+13337:NVC6C0_QMDV02_04_CTA_THREAD_DIMENSION0 = (607, 592) # type: ignore
+13340:NVC6C0_QMDV02_04_CONSTANT_BUFFER_VALID = lambda i: ((640+(i)*1), (640+(i)*1)) # type: ignore
+13341:NVC6C0_QMDV02_04_CONSTANT_BUFFER_VALID_FALSE = 0x00000000 # type: ignore
+13342:NVC6C0_QMDV02_04_CONSTANT_BUFFER_VALID_TRUE = 0x00000001 # type: ignore
+13343:NVC6C0_QMDV02_04_REGISTER_COUNT_V = (656, 648) # type: ignore
+13396:NVC6C0_QMDV02_04_BARRIER_COUNT = (959, 955) # type: ignore
+13405:NVC6C0_QMDV02_04_SASS_VERSION = (1023, 1016) # type: ignore
+13406:NVC6C0_QMDV02_04_CONSTANT_BUFFER_ADDR_LOWER = lambda i: ((1055+(i)*64), (1024+(i)*64)) # type: ignore
+13407:NVC6C0_QMDV02_04_CONSTANT_BUFFER_ADDR_UPPER = lambda i: ((1072+(i)*64), (1056+(i)*64)) # type: ignore
+13408:NVC6C0_QMDV02_04_CONSTANT_BUFFER_PREFETCH_POST = lambda i: ((1073+(i)*64), (1073+(i)*64)) # type: ignore
+13409:NVC6C0_QMDV02_04_CONSTANT_BUFFER_PREFETCH_POST_FALSE = 0x00000000 # type: ignore
+13410:NVC6C0_QMDV02_04_CONSTANT_BUFFER_PREFETCH_POST_TRUE = 0x00000001 # type: ignore
+13411:NVC6C0_QMDV02_04_CONSTANT_BUFFER_INVALIDATE = lambda i: ((1074+(i)*64), (1074+(i)*64)) # type: ignore
+13412:NVC6C0_QMDV02_04_CONSTANT_BUFFER_INVALIDATE_FALSE = 0x00000000 # type: ignore
+13413:NVC6C0_QMDV02_04_CONSTANT_BUFFER_INVALIDATE_TRUE = 0x00000001 # type: ignore
+13414:NVC6C0_QMDV02_04_CONSTANT_BUFFER_SIZE_SHIFTED4 = lambda i: ((1087+(i)*64), (1075+(i)*64)) # type: ignore
+13415:NVC6C0_QMDV02_04_PROGRAM_ADDRESS_LOWER = (1567, 1536) # type: ignore
+13551:NVC6C0_QMDV03_00_SHARED_MEMORY_SIZE = (561, 544) # type: ignore
+13557:NVC6C0_QMDV03_00_QMD_MAJOR_VERSION = (583, 580) # type: ignore
+13558:NVC6C0_QMDV03_00_CTA_THREAD_DIMENSION0 = (607, 592) # type: ignore
+13561:NVC6C0_QMDV03_00_CONSTANT_BUFFER_VALID = lambda i: ((640+(i)*1), (640+(i)*1)) # type: ignore
+13562:NVC6C0_QMDV03_00_CONSTANT_BUFFER_VALID_FALSE = 0x00000000 # type: ignore
+13563:NVC6C0_QMDV03_00_CONSTANT_BUFFER_VALID_TRUE = 0x00000001 # type: ignore
+13564:NVC6C0_QMDV03_00_REGISTER_COUNT_V = (656, 648) # type: ignore
+13573:NVC6C0_QMDV03_00_BARRIER_COUNT = (767, 763) # type: ignore
+13648:NVC6C0_QMDV03_00_CONSTANT_BUFFER_ADDR_LOWER = lambda i: ((1055+(i)*64), (1024+(i)*64)) # type: ignore
+13649:NVC6C0_QMDV03_00_CONSTANT_BUFFER_ADDR_UPPER = lambda i: ((1072+(i)*64), (1056+(i)*64)) # type: ignore
+13650:NVC6C0_QMDV03_00_CONSTANT_BUFFER_PREFETCH_POST = lambda i: ((1073+(i)*64), (1073+(i)*64)) # type: ignore
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/tinygrad]$  grep -n "NVC6C0_QMDV03_00" /home/agent/jetpack-nixos/examples/tinygrad/tinygrad/tinygrad/runtime/autogen/nv_570.py | head -100
+13439:NVC6C0_QMDV03_00_OUTER_PUT = (30, 0) # type: ignore
+13440:NVC6C0_QMDV03_00_OUTER_OVERFLOW = (31, 31) # type: ignore
+13441:NVC6C0_QMDV03_00_OUTER_GET = (62, 32) # type: ignore
+13442:NVC6C0_QMDV03_00_OUTER_STICKY_OVERFLOW = (63, 63) # type: ignore
+13443:NVC6C0_QMDV03_00_INNER_GET = (94, 64) # type: ignore
+13444:NVC6C0_QMDV03_00_INNER_OVERFLOW = (95, 95) # type: ignore
+13445:NVC6C0_QMDV03_00_INNER_PUT = (126, 96) # type: ignore
+13446:NVC6C0_QMDV03_00_INNER_STICKY_OVERFLOW = (127, 127) # type: ignore
+13447:NVC6C0_QMDV03_00_QMD_GROUP_ID = (133, 128) # type: ignore
+13448:NVC6C0_QMDV03_00_SM_GLOBAL_CACHING_ENABLE = (134, 134) # type: ignore
+13449:NVC6C0_QMDV03_00_RUN_CTA_IN_ONE_SM_PARTITION = (135, 135) # type: ignore
+13450:NVC6C0_QMDV03_00_RUN_CTA_IN_ONE_SM_PARTITION_FALSE = 0x00000000 # type: ignore
+13451:NVC6C0_QMDV03_00_RUN_CTA_IN_ONE_SM_PARTITION_TRUE = 0x00000001 # type: ignore
+13452:NVC6C0_QMDV03_00_IS_QUEUE = (136, 136) # type: ignore
+13453:NVC6C0_QMDV03_00_IS_QUEUE_FALSE = 0x00000000 # type: ignore
+13454:NVC6C0_QMDV03_00_IS_QUEUE_TRUE = 0x00000001 # type: ignore
+13455:NVC6C0_QMDV03_00_ADD_TO_HEAD_OF_QMD_GROUP_LINKED_LIST = (137, 137) # type: ignore
+13456:NVC6C0_QMDV03_00_ADD_TO_HEAD_OF_QMD_GROUP_LINKED_LIST_FALSE = 0x00000000 # type: ignore
+13457:NVC6C0_QMDV03_00_ADD_TO_HEAD_OF_QMD_GROUP_LINKED_LIST_TRUE = 0x00000001 # type: ignore
+13458:NVC6C0_QMDV03_00_QMD_RESERVED04A = (139, 138) # type: ignore
+13459:NVC6C0_QMDV03_00_REQUIRE_SCHEDULING_PCAS = (140, 140) # type: ignore
+13460:NVC6C0_QMDV03_00_REQUIRE_SCHEDULING_PCAS_FALSE = 0x00000000 # type: ignore
+13461:NVC6C0_QMDV03_00_REQUIRE_SCHEDULING_PCAS_TRUE = 0x00000001 # type: ignore
+13462:NVC6C0_QMDV03_00_QMD_RESERVED04B = (141, 141) # type: ignore
+13463:NVC6C0_QMDV03_00_DEPENDENCE_COUNTER = (157, 142) # type: ignore
+13464:NVC6C0_QMDV03_00_SELF_COPY_ON_COMPLETION = (158, 158) # type: ignore
+13465:NVC6C0_QMDV03_00_SELF_COPY_ON_COMPLETION_FALSE = 0x00000000 # type: ignore
+13466:NVC6C0_QMDV03_00_SELF_COPY_ON_COMPLETION_TRUE = 0x00000001 # type: ignore
+13467:NVC6C0_QMDV03_00_QMD_RESERVED04C = (159, 159) # type: ignore
+13468:NVC6C0_QMDV03_00_CIRCULAR_QUEUE_SIZE = (184, 160) # type: ignore
+13469:NVC6C0_QMDV03_00_DEMOTE_L2_EVICT_LAST = (185, 185) # type: ignore
+13470:NVC6C0_QMDV03_00_INVALIDATE_TEXTURE_HEADER_CACHE = (186, 186) # type: ignore
+13471:NVC6C0_QMDV03_00_INVALIDATE_TEXTURE_HEADER_CACHE_FALSE = 0x00000000 # type: ignore
+13472:NVC6C0_QMDV03_00_INVALIDATE_TEXTURE_HEADER_CACHE_TRUE = 0x00000001 # type: ignore
+13473:NVC6C0_QMDV03_00_INVALIDATE_TEXTURE_SAMPLER_CACHE = (187, 187) # type: ignore
+13474:NVC6C0_QMDV03_00_INVALIDATE_TEXTURE_SAMPLER_CACHE_FALSE = 0x00000000 # type: ignore
+13475:NVC6C0_QMDV03_00_INVALIDATE_TEXTURE_SAMPLER_CACHE_TRUE = 0x00000001 # type: ignore
+13476:NVC6C0_QMDV03_00_INVALIDATE_TEXTURE_DATA_CACHE = (188, 188) # type: ignore
+13477:NVC6C0_QMDV03_00_INVALIDATE_TEXTURE_DATA_CACHE_FALSE = 0x00000000 # type: ignore
+13478:NVC6C0_QMDV03_00_INVALIDATE_TEXTURE_DATA_CACHE_TRUE = 0x00000001 # type: ignore
+13479:NVC6C0_QMDV03_00_INVALIDATE_SHADER_DATA_CACHE = (189, 189) # type: ignore
+13480:NVC6C0_QMDV03_00_INVALIDATE_SHADER_DATA_CACHE_FALSE = 0x00000000 # type: ignore
+13481:NVC6C0_QMDV03_00_INVALIDATE_SHADER_DATA_CACHE_TRUE = 0x00000001 # type: ignore
+13482:NVC6C0_QMDV03_00_INVALIDATE_INSTRUCTION_CACHE = (190, 190) # type: ignore
+13483:NVC6C0_QMDV03_00_INVALIDATE_INSTRUCTION_CACHE_FALSE = 0x00000000 # type: ignore
+13484:NVC6C0_QMDV03_00_INVALIDATE_INSTRUCTION_CACHE_TRUE = 0x00000001 # type: ignore
+13485:NVC6C0_QMDV03_00_INVALIDATE_SHADER_CONSTANT_CACHE = (191, 191) # type: ignore
+13486:NVC6C0_QMDV03_00_INVALIDATE_SHADER_CONSTANT_CACHE_FALSE = 0x00000000 # type: ignore
+13487:NVC6C0_QMDV03_00_INVALIDATE_SHADER_CONSTANT_CACHE_TRUE = 0x00000001 # type: ignore
+13488:NVC6C0_QMDV03_00_CTA_RASTER_WIDTH_RESUME = (223, 192) # type: ignore
+13489:NVC6C0_QMDV03_00_CTA_RASTER_HEIGHT_RESUME = (239, 224) # type: ignore
+13490:NVC6C0_QMDV03_00_CTA_RASTER_DEPTH_RESUME = (255, 240) # type: ignore
+13491:NVC6C0_QMDV03_00_PROGRAM_PREFETCH_ADDR_LOWER_SHIFTED = (287, 256) # type: ignore
+13492:NVC6C0_QMDV03_00_CIRCULAR_QUEUE_ADDR_LOWER = (319, 288) # type: ignore
+13493:NVC6C0_QMDV03_00_CIRCULAR_QUEUE_ADDR_UPPER = (327, 320) # type: ignore
+13494:NVC6C0_QMDV03_00_QMD_RESERVED_D = (335, 328) # type: ignore
+13495:NVC6C0_QMDV03_00_CIRCULAR_QUEUE_ENTRY_SIZE = (351, 336) # type: ignore
+13496:NVC6C0_QMDV03_00_CWD_REFERENCE_COUNT_ID = (357, 352) # type: ignore
+13497:NVC6C0_QMDV03_00_CWD_REFERENCE_COUNT_DELTA_MINUS_ONE = (365, 358) # type: ignore
+13498:NVC6C0_QMDV03_00_QMD_RESERVED11A = (366, 366) # type: ignore
+13499:NVC6C0_QMDV03_00_CWD_REFERENCE_COUNT_INCR_ENABLE = (367, 367) # type: ignore
+13500:NVC6C0_QMDV03_00_CWD_REFERENCE_COUNT_INCR_ENABLE_FALSE = 0x00000000 # type: ignore
+13501:NVC6C0_QMDV03_00_CWD_REFERENCE_COUNT_INCR_ENABLE_TRUE = 0x00000001 # type: ignore
+13502:NVC6C0_QMDV03_00_CWD_MEMBAR_TYPE = (369, 368) # type: ignore
+13503:NVC6C0_QMDV03_00_CWD_MEMBAR_TYPE_L1_NONE = 0x00000000 # type: ignore
+13504:NVC6C0_QMDV03_00_CWD_MEMBAR_TYPE_L1_SYSMEMBAR = 0x00000001 # type: ignore
+13505:NVC6C0_QMDV03_00_CWD_MEMBAR_TYPE_L1_MEMBAR = 0x00000003 # type: ignore
+13506:NVC6C0_QMDV03_00_SEQUENTIALLY_RUN_CTAS = (370, 370) # type: ignore
+13507:NVC6C0_QMDV03_00_SEQUENTIALLY_RUN_CTAS_FALSE = 0x00000000 # type: ignore
+13508:NVC6C0_QMDV03_00_SEQUENTIALLY_RUN_CTAS_TRUE = 0x00000001 # type: ignore
+13509:NVC6C0_QMDV03_00_CWD_REFERENCE_COUNT_DECR_ENABLE = (371, 371) # type: ignore
+13510:NVC6C0_QMDV03_00_CWD_REFERENCE_COUNT_DECR_ENABLE_FALSE = 0x00000000 # type: ignore
+13511:NVC6C0_QMDV03_00_CWD_REFERENCE_COUNT_DECR_ENABLE_TRUE = 0x00000001 # type: ignore
+13512:NVC6C0_QMDV03_00_QMD_RESERVED11B = (377, 372) # type: ignore
+13513:NVC6C0_QMDV03_00_API_VISIBLE_CALL_LIMIT = (378, 378) # type: ignore
+13514:NVC6C0_QMDV03_00_API_VISIBLE_CALL_LIMIT__32 = 0x00000000 # type: ignore
+13515:NVC6C0_QMDV03_00_API_VISIBLE_CALL_LIMIT_NO_CHECK = 0x00000001 # type: ignore
+13516:NVC6C0_QMDV03_00_QMD_RESERVED11C = (381, 379) # type: ignore
+13517:NVC6C0_QMDV03_00_SAMPLER_INDEX = (382, 382) # type: ignore
+13518:NVC6C0_QMDV03_00_SAMPLER_INDEX_INDEPENDENTLY = 0x00000000 # type: ignore
+13519:NVC6C0_QMDV03_00_SAMPLER_INDEX_VIA_HEADER_INDEX = 0x00000001 # type: ignore
+13520:NVC6C0_QMDV03_00_DISABLE_AUTO_INVALIDATE = (383, 383) # type: ignore
+13521:NVC6C0_QMDV03_00_DISABLE_AUTO_INVALIDATE_FALSE = 0x00000000 # type: ignore
+13522:NVC6C0_QMDV03_00_DISABLE_AUTO_INVALIDATE_TRUE = 0x00000001 # type: ignore
+13523:NVC6C0_QMDV03_00_CTA_RASTER_WIDTH = (415, 384) # type: ignore
+13524:NVC6C0_QMDV03_00_CTA_RASTER_HEIGHT = (431, 416) # type: ignore
+13525:NVC6C0_QMDV03_00_CTA_RASTER_DEPTH = (463, 448) # type: ignore
+13526:NVC6C0_QMDV03_00_DEPENDENT_QMD0_POINTER = (511, 480) # type: ignore
+13527:NVC6C0_QMDV03_00_DEPENDENT_QMD0_ENABLE = (512, 512) # type: ignore
+13528:NVC6C0_QMDV03_00_DEPENDENT_QMD0_ENABLE_FALSE = 0x00000000 # type: ignore
+13529:NVC6C0_QMDV03_00_DEPENDENT_QMD0_ENABLE_TRUE = 0x00000001 # type: ignore
+13530:NVC6C0_QMDV03_00_DEPENDENT_QMD0_ACTION = (515, 513) # type: ignore
+13531:NVC6C0_QMDV03_00_DEPENDENT_QMD0_ACTION_QMD_INCREMENT_PUT = 0x00000000 # type: ignore
+13532:NVC6C0_QMDV03_00_DEPENDENT_QMD0_ACTION_QMD_SCHEDULE = 0x00000001 # type: ignore
+13533:NVC6C0_QMDV03_00_DEPENDENT_QMD0_ACTION_QMD_INVALIDATE_COPY_SCHEDULE = 0x00000003 # type: ignore
+13534:NVC6C0_QMDV03_00_DEPENDENT_QMD0_ACTION_QMD_DECREMENT_DEPENDENCE = 0x00000004 # type: ignore
+13535:NVC6C0_QMDV03_00_DEPENDENT_QMD0_PREFETCH = (516, 516) # type: ignore
+13536:NVC6C0_QMDV03_00_DEPENDENT_QMD0_PREFETCH_FALSE = 0x00000000 # type: ignore
+13537:NVC6C0_QMDV03_00_DEPENDENT_QMD0_PREFETCH_TRUE = 0x00000001 # type: ignore
+13538:NVC6C0_QMDV03_00_DEPENDENT_QMD1_ENABLE = (517, 517) # type: ignore
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/tinygrad]$  grep -n "NVC6C0_QMDV03_00" /home/agent/jetpack-nixos/examples/tinygrad/tinygrad/tinygrad/runtime/autogen/nv_570.py | tail -80
+13635:NVC6C0_QMDV03_00_RELEASE1_NON_BLOCKING_INTR_TYPE = (956, 955) # type: ignore
+13636:NVC6C0_QMDV03_00_RELEASE1_NON_BLOCKING_INTR_TYPE_NONE = 0x00000000 # type: ignore
+13637:NVC6C0_QMDV03_00_RELEASE1_NON_BLOCKING_INTR_TYPE_TRAP = 0x00000001 # type: ignore
+13638:NVC6C0_QMDV03_00_RELEASE1_NON_BLOCKING_INTR_TYPE_CONDITIONAL_TRAP = 0x00000002 # type: ignore
+13639:NVC6C0_QMDV03_00_RELEASE1_PAYLOAD64B = (957, 957) # type: ignore
+13640:NVC6C0_QMDV03_00_RELEASE1_PAYLOAD64B_FALSE = 0x00000000 # type: ignore
+13641:NVC6C0_QMDV03_00_RELEASE1_PAYLOAD64B_TRUE = 0x00000001 # type: ignore
+13642:NVC6C0_QMDV03_00_RELEASE1_STRUCTURE_SIZE = (959, 958) # type: ignore
+13643:NVC6C0_QMDV03_00_RELEASE1_STRUCTURE_SIZE_SEMAPHORE_FOUR_WORDS = 0x00000000 # type: ignore
+13644:NVC6C0_QMDV03_00_RELEASE1_STRUCTURE_SIZE_SEMAPHORE_ONE_WORD = 0x00000001 # type: ignore
+13645:NVC6C0_QMDV03_00_RELEASE1_STRUCTURE_SIZE_SEMAPHORE_TWO_WORDS = 0x00000002 # type: ignore
+13646:NVC6C0_QMDV03_00_RELEASE1_PAYLOAD_LOWER = (991, 960) # type: ignore
+13647:NVC6C0_QMDV03_00_RELEASE1_PAYLOAD_UPPER = (1023, 992) # type: ignore
+13648:NVC6C0_QMDV03_00_CONSTANT_BUFFER_ADDR_LOWER = lambda i: ((1055+(i)*64), (1024+(i)*64)) # type: ignore
+13649:NVC6C0_QMDV03_00_CONSTANT_BUFFER_ADDR_UPPER = lambda i: ((1072+(i)*64), (1056+(i)*64)) # type: ignore
+13650:NVC6C0_QMDV03_00_CONSTANT_BUFFER_PREFETCH_POST = lambda i: ((1073+(i)*64), (1073+(i)*64)) # type: ignore
+13651:NVC6C0_QMDV03_00_CONSTANT_BUFFER_PREFETCH_POST_FALSE = 0x00000000 # type: ignore
+13652:NVC6C0_QMDV03_00_CONSTANT_BUFFER_PREFETCH_POST_TRUE = 0x00000001 # type: ignore
+13653:NVC6C0_QMDV03_00_CONSTANT_BUFFER_INVALIDATE = lambda i: ((1074+(i)*64), (1074+(i)*64)) # type: ignore
+13654:NVC6C0_QMDV03_00_CONSTANT_BUFFER_INVALIDATE_FALSE = 0x00000000 # type: ignore
+13655:NVC6C0_QMDV03_00_CONSTANT_BUFFER_INVALIDATE_TRUE = 0x00000001 # type: ignore
+13656:NVC6C0_QMDV03_00_CONSTANT_BUFFER_SIZE_SHIFTED4 = lambda i: ((1087+(i)*64), (1075+(i)*64)) # type: ignore
+13657:NVC6C0_QMDV03_00_PROGRAM_ADDRESS_LOWER = (1567, 1536) # type: ignore
+13658:NVC6C0_QMDV03_00_PROGRAM_ADDRESS_UPPER = (1584, 1568) # type: ignore
+13659:NVC6C0_QMDV03_00_SHADER_LOCAL_MEMORY_HIGH_SIZE = (1623, 1600) # type: ignore
+13660:NVC6C0_QMDV03_00_PROGRAM_PREFETCH_ADDR_UPPER_SHIFTED = (1640, 1632) # type: ignore
+13661:NVC6C0_QMDV03_00_PROGRAM_PREFETCH_SIZE = (1649, 1641) # type: ignore
+13662:NVC6C0_QMDV03_00_PROGRAM_PREFETCH_TYPE = (1651, 1650) # type: ignore
+13663:NVC6C0_QMDV03_00_PROGRAM_PREFETCH_TYPE_PREFETCH_LAUNCH = 0x00000000 # type: ignore
+13664:NVC6C0_QMDV03_00_PROGRAM_PREFETCH_TYPE_PREFTECH_POST = 0x00000001 # type: ignore
+13665:NVC6C0_QMDV03_00_SASS_VERSION = (1663, 1656) # type: ignore
+13666:NVC6C0_QMDV03_00_RELEASE2_ADDRESS_LOWER = (1695, 1664) # type: ignore
+13667:NVC6C0_QMDV03_00_RELEASE2_ADDRESS_UPPER = (1703, 1696) # type: ignore
+13668:NVC6C0_QMDV03_00_SEMAPHORE_RESERVED53A = (1714, 1704) # type: ignore
+13669:NVC6C0_QMDV03_00_RELEASE2_MEMBAR_TYPE = (1715, 1715) # type: ignore
+13670:NVC6C0_QMDV03_00_RELEASE2_MEMBAR_TYPE_FE_NONE = 0x00000000 # type: ignore
+13671:NVC6C0_QMDV03_00_RELEASE2_MEMBAR_TYPE_FE_SYSMEMBAR = 0x00000001 # type: ignore
+13672:NVC6C0_QMDV03_00_RELEASE2_REDUCTION_OP = (1718, 1716) # type: ignore
+13673:NVC6C0_QMDV03_00_RELEASE2_REDUCTION_OP_RED_ADD = 0x00000000 # type: ignore
+13674:NVC6C0_QMDV03_00_RELEASE2_REDUCTION_OP_RED_MIN = 0x00000001 # type: ignore
+13675:NVC6C0_QMDV03_00_RELEASE2_REDUCTION_OP_RED_MAX = 0x00000002 # type: ignore
+13676:NVC6C0_QMDV03_00_RELEASE2_REDUCTION_OP_RED_INC = 0x00000003 # type: ignore
+13677:NVC6C0_QMDV03_00_RELEASE2_REDUCTION_OP_RED_DEC = 0x00000004 # type: ignore
+13678:NVC6C0_QMDV03_00_RELEASE2_REDUCTION_OP_RED_AND = 0x00000005 # type: ignore
+13679:NVC6C0_QMDV03_00_RELEASE2_REDUCTION_OP_RED_OR = 0x00000006 # type: ignore
+13680:NVC6C0_QMDV03_00_RELEASE2_REDUCTION_OP_RED_XOR = 0x00000007 # type: ignore
+13681:NVC6C0_QMDV03_00_RELEASE2_ENABLE = (1719, 1719) # type: ignore
+13682:NVC6C0_QMDV03_00_RELEASE2_ENABLE_FALSE = 0x00000000 # type: ignore
+13683:NVC6C0_QMDV03_00_RELEASE2_ENABLE_TRUE = 0x00000001 # type: ignore
+13684:NVC6C0_QMDV03_00_RELEASE2_REDUCTION_FORMAT = (1721, 1720) # type: ignore
+13685:NVC6C0_QMDV03_00_RELEASE2_REDUCTION_FORMAT_UNSIGNED_32 = 0x00000000 # type: ignore
+13686:NVC6C0_QMDV03_00_RELEASE2_REDUCTION_FORMAT_SIGNED_32 = 0x00000001 # type: ignore
+13687:NVC6C0_QMDV03_00_RELEASE2_REDUCTION_ENABLE = (1722, 1722) # type: ignore
+13688:NVC6C0_QMDV03_00_RELEASE2_REDUCTION_ENABLE_FALSE = 0x00000000 # type: ignore
+13689:NVC6C0_QMDV03_00_RELEASE2_REDUCTION_ENABLE_TRUE = 0x00000001 # type: ignore
+13690:NVC6C0_QMDV03_00_RELEASE2_NON_BLOCKING_INTR_TYPE = (1724, 1723) # type: ignore
+13691:NVC6C0_QMDV03_00_RELEASE2_NON_BLOCKING_INTR_TYPE_NONE = 0x00000000 # type: ignore
+13692:NVC6C0_QMDV03_00_RELEASE2_NON_BLOCKING_INTR_TYPE_TRAP = 0x00000001 # type: ignore
+13693:NVC6C0_QMDV03_00_RELEASE2_NON_BLOCKING_INTR_TYPE_CONDITIONAL_TRAP = 0x00000002 # type: ignore
+13694:NVC6C0_QMDV03_00_RELEASE2_PAYLOAD64B = (1725, 1725) # type: ignore
+13695:NVC6C0_QMDV03_00_RELEASE2_PAYLOAD64B_FALSE = 0x00000000 # type: ignore
+13696:NVC6C0_QMDV03_00_RELEASE2_PAYLOAD64B_TRUE = 0x00000001 # type: ignore
+13697:NVC6C0_QMDV03_00_RELEASE2_STRUCTURE_SIZE = (1727, 1726) # type: ignore
+13698:NVC6C0_QMDV03_00_RELEASE2_STRUCTURE_SIZE_SEMAPHORE_FOUR_WORDS = 0x00000000 # type: ignore
+13699:NVC6C0_QMDV03_00_RELEASE2_STRUCTURE_SIZE_SEMAPHORE_ONE_WORD = 0x00000001 # type: ignore
+13700:NVC6C0_QMDV03_00_RELEASE2_STRUCTURE_SIZE_SEMAPHORE_TWO_WORDS = 0x00000002 # type: ignore
+13701:NVC6C0_QMDV03_00_RELEASE2_PAYLOAD_LOWER = (1759, 1728) # type: ignore
+13702:NVC6C0_QMDV03_00_RELEASE2_PAYLOAD_UPPER = (1791, 1760) # type: ignore
+13703:NVC6C0_QMDV03_00_QMD_SPARE_I = (1823, 1792) # type: ignore
+13704:NVC6C0_QMDV03_00_HW_ONLY_INNER_GET = (1854, 1824) # type: ignore
+13705:NVC6C0_QMDV03_00_HW_ONLY_REQUIRE_SCHEDULING_PCAS = (1855, 1855) # type: ignore
+13706:NVC6C0_QMDV03_00_HW_ONLY_INNER_PUT = (1886, 1856) # type: ignore
+13707:NVC6C0_QMDV03_00_HW_ONLY_SPAN_LIST_HEAD_INDEX = (1917, 1888) # type: ignore
+13708:NVC6C0_QMDV03_00_HW_ONLY_SPAN_LIST_HEAD_INDEX_VALID = (1919, 1919) # type: ignore
+13709:NVC6C0_QMDV03_00_HW_ONLY_SPAN_LIST_HEAD_INDEX_VALID_FALSE = 0x00000000 # type: ignore
+13710:NVC6C0_QMDV03_00_HW_ONLY_SPAN_LIST_HEAD_INDEX_VALID_TRUE = 0x00000001 # type: ignore
+13711:NVC6C0_QMDV03_00_HW_ONLY_SKED_NEXT_QMD_POINTER = (1951, 1920) # type: ignore
+13712:NVC6C0_QMDV03_00_HW_ONLY_DEPENDENCE_COUNTER = (1958, 1952) # type: ignore
+13713:NVC6C0_QMDV03_00_DEBUG_ID_UPPER = (2015, 1984) # type: ignore
+13714:NVC6C0_QMDV03_00_DEBUG_ID_LOWER = (2047, 2016) # type: ignore
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/tinygrad]$  grep -n "NVC6C0_QMDV03_00.*SHARED_MEM\|NVC6C0_QMDV03_00.*QMD_VERSION\|NVC6C0_QMDV03_00.*REGISTER_COUNT\|NVC6C0_QMDV03_00.*BARRIER\|NVC6C0_QMDV03_00.*SHADER_LOCAL\|NVC6C0_QMDV03_00.*RELEASE0" /home/agent/jetpack-nixos/examples/tinygrad/tinygrad/tinygrad/runtime/autogen/nv_570.py
+13551:NVC6C0_QMDV03_00_SHARED_MEMORY_SIZE = (561, 544) # type: ignore
+13552:NVC6C0_QMDV03_00_MIN_SM_CONFIG_SHARED_MEM_SIZE = (567, 562) # type: ignore
+13554:NVC6C0_QMDV03_00_MAX_SM_CONFIG_SHARED_MEM_SIZE = (574, 569) # type: ignore
+13556:NVC6C0_QMDV03_00_QMD_VERSION = (579, 576) # type: ignore
+13564:NVC6C0_QMDV03_00_REGISTER_COUNT_V = (656, 648) # type: ignore
+13565:NVC6C0_QMDV03_00_TARGET_SM_CONFIG_SHARED_MEM_SIZE = (662, 657) # type: ignore
+13572:NVC6C0_QMDV03_00_SHADER_LOCAL_MEMORY_LOW_SIZE = (759, 736) # type: ignore
+13573:NVC6C0_QMDV03_00_BARRIER_COUNT = (767, 763) # type: ignore
+13574:NVC6C0_QMDV03_00_RELEASE0_ADDRESS_LOWER = (799, 768) # type: ignore
+13575:NVC6C0_QMDV03_00_RELEASE0_ADDRESS_UPPER = (807, 800) # type: ignore
+13577:NVC6C0_QMDV03_00_RELEASE0_MEMBAR_TYPE = (819, 819) # type: ignore
+13578:NVC6C0_QMDV03_00_RELEASE0_MEMBAR_TYPE_FE_NONE = 0x00000000 # type: ignore
+13579:NVC6C0_QMDV03_00_RELEASE0_MEMBAR_TYPE_FE_SYSMEMBAR = 0x00000001 # type: ignore
+13580:NVC6C0_QMDV03_00_RELEASE0_REDUCTION_OP = (822, 820) # type: ignore
+13581:NVC6C0_QMDV03_00_RELEASE0_REDUCTION_OP_RED_ADD = 0x00000000 # type: ignore
+13582:NVC6C0_QMDV03_00_RELEASE0_REDUCTION_OP_RED_MIN = 0x00000001 # type: ignore
+13583:NVC6C0_QMDV03_00_RELEASE0_REDUCTION_OP_RED_MAX = 0x00000002 # type: ignore
+13584:NVC6C0_QMDV03_00_RELEASE0_REDUCTION_OP_RED_INC = 0x00000003 # type: ignore
+13585:NVC6C0_QMDV03_00_RELEASE0_REDUCTION_OP_RED_DEC = 0x00000004 # type: ignore
+13586:NVC6C0_QMDV03_00_RELEASE0_REDUCTION_OP_RED_AND = 0x00000005 # type: ignore
+13587:NVC6C0_QMDV03_00_RELEASE0_REDUCTION_OP_RED_OR = 0x00000006 # type: ignore
+13588:NVC6C0_QMDV03_00_RELEASE0_REDUCTION_OP_RED_XOR = 0x00000007 # type: ignore
+13589:NVC6C0_QMDV03_00_RELEASE0_ENABLE = (823, 823) # type: ignore
+13590:NVC6C0_QMDV03_00_RELEASE0_ENABLE_FALSE = 0x00000000 # type: ignore
+13591:NVC6C0_QMDV03_00_RELEASE0_ENABLE_TRUE = 0x00000001 # type: ignore
+13592:NVC6C0_QMDV03_00_RELEASE0_REDUCTION_FORMAT = (825, 824) # type: ignore
+13593:NVC6C0_QMDV03_00_RELEASE0_REDUCTION_FORMAT_UNSIGNED_32 = 0x00000000 # type: ignore
+13594:NVC6C0_QMDV03_00_RELEASE0_REDUCTION_FORMAT_SIGNED_32 = 0x00000001 # type: ignore
+13595:NVC6C0_QMDV03_00_RELEASE0_REDUCTION_ENABLE = (826, 826) # type: ignore
+13596:NVC6C0_QMDV03_00_RELEASE0_REDUCTION_ENABLE_FALSE = 0x00000000 # type: ignore
+13597:NVC6C0_QMDV03_00_RELEASE0_REDUCTION_ENABLE_TRUE = 0x00000001 # type: ignore
+13598:NVC6C0_QMDV03_00_RELEASE0_NON_BLOCKING_INTR_TYPE = (828, 827) # type: ignore
+13599:NVC6C0_QMDV03_00_RELEASE0_NON_BLOCKING_INTR_TYPE_NONE = 0x00000000 # type: ignore
+13600:NVC6C0_QMDV03_00_RELEASE0_NON_BLOCKING_INTR_TYPE_TRAP = 0x00000001 # type: ignore
+13601:NVC6C0_QMDV03_00_RELEASE0_NON_BLOCKING_INTR_TYPE_CONDITIONAL_TRAP = 0x00000002 # type: ignore
+13602:NVC6C0_QMDV03_00_RELEASE0_PAYLOAD64B = (829, 829) # type: ignore
+13603:NVC6C0_QMDV03_00_RELEASE0_PAYLOAD64B_FALSE = 0x00000000 # type: ignore
+13604:NVC6C0_QMDV03_00_RELEASE0_PAYLOAD64B_TRUE = 0x00000001 # type: ignore
+13605:NVC6C0_QMDV03_00_RELEASE0_STRUCTURE_SIZE = (831, 830) # type: ignore
+13606:NVC6C0_QMDV03_00_RELEASE0_STRUCTURE_SIZE_SEMAPHORE_FOUR_WORDS = 0x00000000 # type: ignore
+13607:NVC6C0_QMDV03_00_RELEASE0_STRUCTURE_SIZE_SEMAPHORE_ONE_WORD = 0x00000001 # type: ignore
+13608:NVC6C0_QMDV03_00_RELEASE0_STRUCTURE_SIZE_SEMAPHORE_TWO_WORDS = 0x00000002 # type: ignore
+13609:NVC6C0_QMDV03_00_RELEASE0_PAYLOAD_LOWER = (863, 832) # type: ignore
+13610:NVC6C0_QMDV03_00_RELEASE0_PAYLOAD_UPPER = (895, 864) # type: ignore
+13659:NVC6C0_QMDV03_00_SHADER_LOCAL_MEMORY_HIGH_SIZE = (1623, 1600) # type: ignore
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/tinygrad]$  grep -n "_update_exec\|qmd_version\|qmd_major_version\|register_count_v\|shared_memory_size\|barrier_count\|program_address\|qmd\.\|shmem_usage" /home/agent/jetpack-nixos/examples/tinygrad/tinygrad/tinygrad/runtime/ops_nv.py | head -50
+140:    qmd_buf.cpu_view().view(size=prg.qmd.mv.nbytes, fmt='B')[:] = prg.qmd.mv
+145:    self.bind_sints_to_mem(*global_size, mem=qmd_buf.cpu_view(), fmt='I', offset=qmd.field_offset('cta_raster_width' if qmd.ver<4 else 'grid_width'))
+146:    self.bind_sints_to_mem(*(local_size[:2]), mem=qmd_buf.cpu_view(), fmt='H', offset=qmd.field_offset('cta_thread_dimension0'))
+147:    self.bind_sints_to_mem(local_size[2], mem=qmd_buf.cpu_view(), fmt='B', offset=qmd.field_offset('cta_thread_dimension2'))
+148:    qmd.set_constant_buf_addr(0, args_state.buf.va_addr)
+155:      self.active_qmd.write(dependent_qmd0_pointer=qmd_buf.va_addr >> 8, dependent_qmd0_action=1, dependent_qmd0_prefetch=1, dependent_qmd0_enable=1)
+163:        if self.active_qmd.read(f'release{i}_enable') == 0:
+164:          self.active_qmd.write(**{f'release{i}_enable': 1})
+166:          addr_off = self.active_qmd.field_offset(f'release{i}_address_lower' if self.active_qmd.ver<4 else f'release_semaphore{i}_addr_lower')
+170:          val_off = self.active_qmd.field_offset(f'release{i}_payload_lower' if self.active_qmd.ver<4 else f'release_semaphore{i}_payload_lower')
+242:      self.regs_usage, self.shmem_usage, self.lcmem_usage = info.num_gprs, round_up(info.cs.smem_size, 128), round_up(info.slm_size, 16)
+250:      self.regs_usage, self.shmem_usage, self.lcmem_usage, cbuf0_size = 0, 0x400, 0x240, 0 if not MOCKGPU else 0x160
+252:        if sh.name == f".nv.shared.{self.name}": self.shmem_usage = round_up(0x400 + sh.header.sh_size, 128)
+281:      qmd = {'qmd_major_version':5, 'qmd_type':nv_gpu.NVCEC0_QMDV05_00_QMD_TYPE_GRID_CTA, 'program_address_upper_shifted4':hi32(prog_addr>>4),
+282:        'program_address_lower_shifted4':lo32(prog_addr>>4), 'register_count':self.regs_usage, 'shared_memory_size_shifted7':self.shmem_usage>>7,
+286:      qmd = {'qmd_major_version':3, 'sm_global_caching_enable':1, 'program_address_upper':hi32(prog_addr), 'program_address_lower':lo32(prog_addr),
+287:        'shared_memory_size':self.shmem_usage, 'register_count_v':self.regs_usage,
+290:    smem_cfg = min(shmem_conf * 1024 for shmem_conf in [32, 64, 100] if shmem_conf * 1024 >= self.shmem_usage) // 4096 + 1
+293:      invalidate_texture_data_cache=1, invalidate_shader_data_cache=1, api_visible_call_limit=1, sampler_index=1, barrier_count=1,
+299:      self.qmd.set_constant_buf_addr(i, addr)
+300:      self.qmd.write(**{f'constant_buffer_size_shifted4_{i}': sz, f'constant_buffer_valid_{i}': 1})
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/tinygrad]$  grep -n "shared_mem_window\|local_mem_window\|slm_per_thread" /home/agent/jetpack-nixos/examples/tinygrad/tinygrad/tinygrad/runtime/ops_nv.py | head -20
+89:  def setup(self, compute_class=None, copy_class=None, local_mem_window=None, shared_mem_window=None, local_mem=None, local_mem_tpc_bytes=None):
+92:    if local_mem_window: self.nvm(1, nv_gpu.NVC6C0_SET_SHADER_LOCAL_MEMORY_WINDOW_A, *data64(local_mem_window))
+93:    if shared_mem_window: self.nvm(1, nv_gpu.NVC6C0_SET_SHADER_SHARED_MEMORY_WINDOW_A, *data64(shared_mem_window))
+280:      if not NAK: self.cbuf_0[188:192], self.cbuf_0[223] = [*data64_le(self.dev.shared_mem_window), *data64_le(self.dev.local_mem_window)], 0xfffdc0
+283:        'shader_local_memory_high_size_shifted4':self.lcmem_usage>>4 if NAK else self.dev.slm_per_thread>>4}
+285:      if not NAK: self.cbuf_0[6:12] = [*data64_le(self.dev.shared_mem_window), *data64_le(self.dev.local_mem_window), *data64_le(0xfffdc0)]
+288:        **({'shader_local_memory_low_size':self.lcmem_usage} if NAK else {'shader_local_memory_high_size':self.dev.slm_per_thread})}
+316:    if prod(local_size) > 1024 or self.max_threads < prod(local_size) or self.lcmem_usage > cast(NVDevice, self.dev).slm_per_thread:
+671:    self.slm_per_thread, self.shader_local_mem = 0, None
+674:    self.shared_mem_window, self.local_mem_window = 0x729400000000, 0x729300000000
+676:    NVComputeQueue().setup(compute_class=self.iface.compute_class, local_mem_window=self.local_mem_window, shared_mem_window=self.shared_mem_window) \
+686:    if self.slm_per_thread >= required: return
+688:    self.slm_per_thread, old_slm_per_thread = round_up(required, 32), self.slm_per_thread
+689:    bytes_per_tpc = round_up(round_up(self.slm_per_thread * 32, 0x200) * self.max_warps_per_sm * self.num_sm_per_tpc, 0x8000)
+693:    if not ok: self.slm_per_thread = old_slm_per_thread
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/tinygrad]$  grep -n "INVALIDATE_SHADER_CACHES\|SET_SHADER_LOCAL_MEMORY_WINDOW\|SET_SHADER_SHARED_MEMORY_WINDOW\|SET_SHADER_LOCAL_MEMORY_A\|SET_SHADER_LOCAL_MEMORY_NON_THROTTLED\|INVALIDATE_SHADER_CACHES_NO_WFI" /home/agent/jetpack-nixos/examples/tinygrad/tinygrad/tinygrad/runtime/autogen/nv_570.py | head -20
+15603:NVC6C0_INVALIDATE_SHADER_CACHES = 0x021c # type: ignore
+15604:NVC6C0_INVALIDATE_SHADER_CACHES_INSTRUCTION = (0, 0) # type: ignore
+15605:NVC6C0_INVALIDATE_SHADER_CACHES_INSTRUCTION_FALSE = 0x00000000 # type: ignore
+15606:NVC6C0_INVALIDATE_SHADER_CACHES_INSTRUCTION_TRUE = 0x00000001 # type: ignore
+15607:NVC6C0_INVALIDATE_SHADER_CACHES_DATA = (4, 4) # type: ignore
+15608:NVC6C0_INVALIDATE_SHADER_CACHES_DATA_FALSE = 0x00000000 # type: ignore
+15609:NVC6C0_INVALIDATE_SHADER_CACHES_DATA_TRUE = 0x00000001 # type: ignore
+15610:NVC6C0_INVALIDATE_SHADER_CACHES_CONSTANT = (12, 12) # type: ignore
+15611:NVC6C0_INVALIDATE_SHADER_CACHES_CONSTANT_FALSE = 0x00000000 # type: ignore
+15612:NVC6C0_INVALIDATE_SHADER_CACHES_CONSTANT_TRUE = 0x00000001 # type: ignore
+15613:NVC6C0_INVALIDATE_SHADER_CACHES_LOCKS = (1, 1) # type: ignore
+15614:NVC6C0_INVALIDATE_SHADER_CACHES_LOCKS_FALSE = 0x00000000 # type: ignore
+15615:NVC6C0_INVALIDATE_SHADER_CACHES_LOCKS_TRUE = 0x00000001 # type: ignore
+15616:NVC6C0_INVALIDATE_SHADER_CACHES_FLUSH_DATA = (2, 2) # type: ignore
+15617:NVC6C0_INVALIDATE_SHADER_CACHES_FLUSH_DATA_FALSE = 0x00000000 # type: ignore
+15618:NVC6C0_INVALIDATE_SHADER_CACHES_FLUSH_DATA_TRUE = 0x00000001 # type: ignore
+15696:NVC6C0_SET_SHADER_SHARED_MEMORY_WINDOW_A = 0x02a0 # type: ignore
+15697:NVC6C0_SET_SHADER_SHARED_MEMORY_WINDOW_A_BASE_ADDRESS_UPPER = (16, 0) # type: ignore
+15698:NVC6C0_SET_SHADER_SHARED_MEMORY_WINDOW_B = 0x02a4 # type: ignore
+15699:NVC6C0_SET_SHADER_SHARED_MEMORY_WINDOW_B_BASE_ADDRESS = (31, 0) # type: ignore
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/tinygrad]$  grep -n "NVC6C0_INVALIDATE_SHADER_CACHES_NO_WFI\|SET_SHADER_LOCAL_MEMORY_WINDOW_A\b\|SET_SHADER_LOCAL_MEMORY_A\b\|SET_SHADER_LOCAL_MEMORY_NON_THROTTLED_A\b" /home/agent/jetpack-nixos/examples/tinygrad/tinygrad/tinygrad/runtime/autogen/nv_570.py
+15737:NVC6C0_SET_SHADER_LOCAL_MEMORY_NON_THROTTLED_A = 0x02e4 # type: ignore
+15784:NVC6C0_SET_SHADER_LOCAL_MEMORY_A = 0x0790 # type: ignore
+15788:NVC6C0_SET_SHADER_LOCAL_MEMORY_WINDOW_A = 0x07b0 # type: ignore
+15856:NVC6C0_INVALIDATE_SHADER_CACHES_NO_WFI = 0x1698 # type: ignore
+15857:NVC6C0_INVALIDATE_SHADER_CACHES_NO_WFI_INSTRUCTION = (0, 0) # type: ignore
+15858:NVC6C0_INVALIDATE_SHADER_CACHES_NO_WFI_INSTRUCTION_FALSE = 0x00000000 # type: ignore
+15859:NVC6C0_INVALIDATE_SHADER_CACHES_NO_WFI_INSTRUCTION_TRUE = 0x00000001 # type: ignore
+15860:NVC6C0_INVALIDATE_SHADER_CACHES_NO_WFI_GLOBAL_DATA = (4, 4) # type: ignore
+15861:NVC6C0_INVALIDATE_SHADER_CACHES_NO_WFI_GLOBAL_DATA_FALSE = 0x00000000 # type: ignore
+15862:NVC6C0_INVALIDATE_SHADER_CACHES_NO_WFI_GLOBAL_DATA_TRUE = 0x00000001 # type: ignore
+15863:NVC6C0_INVALIDATE_SHADER_CACHES_NO_WFI_CONSTANT = (12, 12) # type: ignore
+15864:NVC6C0_INVALIDATE_SHADER_CACHES_NO_WFI_CONSTANT_FALSE = 0x00000000 # type: ignore
+15865:NVC6C0_INVALIDATE_SHADER_CACHES_NO_WFI_CONSTANT_TRUE = 0x00000001 # type: ignore

@@ -1,0 +1,62 @@
+[   0.000] === Log started at 2026-02-10T21:57:11.057495 ===
+[   0.002] === GPU Command Submission Test ===
+[   0.003] 
+[   0.004] Step 1: Open device nodes
+[   0.005]   nvmap_fd=4, ctrl_fd=5
+[   0.006] Step 2: GET_CHARACTERISTICS
+[   0.107]   compute=0xc7c0 dma=0xc7b5
+[   0.109] Step 3: ALLOC_AS + TSG + subcontext
+[   0.111]   as_fd=6, tsg_fd=7, veid=1
+[   0.112] Step 4: Create COMPUTE channel (entries=1024)
+[   0.114]   [compute] Alloc gpfifo buffer: 8192 bytes (1024 entries)
+[   0.115]   [compute] gpfifo: handle=2147483673, dmabuf=8
+[   0.116]   [compute] Alloc userd buffer: 4096 bytes
+[   0.117]   [compute] userd: handle=2147483674, dmabuf=9
+[   0.119]   [compute] OPEN_CHANNEL...
+[   0.120]   [compute] ch_fd=10
+[   0.121]   [compute] AS_BIND...
+[   0.122]   [compute] TSG_BIND (veid=1)...
+[   0.123]   [compute] WDT disable...
+[   0.124]   [compute] SETUP_BIND (entries=1024)...
+[   0.125]   [compute] token=511, gpfifo_gpu_va=0x000000000000, userd_gpu_va=0x000000000000
+[   0.126] Step 5: ALLOC_OBJ_CTX compute class 0xc7c0
+[   1.138]   PASSED!
+[   1.141] Step 6: mmap doorbell (ctrl fd)
+[   1.142]   doorbell_base=0xfffff7fee000
+[   1.143] Step 7: mmap compute channel buffers
+[   1.144]   gpfifo_cpu=0xfffff7fec000, userd_cpu=0xfffff7feb000
+[   1.145] Step 8: Allocate semaphore buffer (4KB)
+[   1.146]   sem_gpu_va=0x00ffffa00000, sem_cpu=0xfffff7fea000
+[   1.147]   Semaphore initial value: 0
+[   1.148] Step 9: Allocate push buffer (4KB)
+[   1.149]   pb_gpu_va=0x00ffffa01000, pb_cpu=0xfffff7fe9000
+[   1.151] Step 10: Build push buffer (semaphore release value=0xdeadbeef42)
+[   1.151]   Push buffer: 6 words
+[   1.152]     [0] 0x20050017
+[   1.153]     [1] 0xffa00000
+[   1.154]     [2] 0x000000ff
+[   1.155]     [3] 0xadbeef42
+[   1.156]     [4] 0x000000de
+[   1.156]     [5] 0x03100001
+[   1.157] Step 11: Submit push buffer via GPFIFO
+[   1.158]   GPPut before: 0
+[   1.159]   GPFIFO entry: 0x00001affffa01000
+[   1.160]     addr=0xffffa01000, len=6, priv=1
+[   1.161]   GPPut after: 1
+[   1.162]   Ringing doorbell: token=511 at offset 0x90
+[   1.162] Step 12: Wait for semaphore write...
+[   1.163]   Semaphore value: 0x000000deadbeef42
+[   1.164] Step 13: Verify result
+[   1.165]   Payload:   0x000000deadbeef42 (expected 0x000000deadbeef42)
+[   1.166]   Timestamp: 0x000000a187e06c40
+[   1.167] 
+[   1.168] ============================================================
+[   1.169] GPU COMMAND SUBMISSION: PASSED!
+[   1.170] ============================================================
+[   1.171] 
+[   1.171] Proven:
+[   1.172]   ✓ Channel setup with separate small buffers works
+[   1.173]   ✓ GPFIFO entry written and GPU consumed it
+[   1.174]   ✓ Doorbell (ctrl fd mmap offset 0x90) triggers GPU
+[   1.175]   ✓ Semaphore release with 64-bit payload verified
+[   1.176]   ✓ GPU timestamp written (proves GPU executed the command)

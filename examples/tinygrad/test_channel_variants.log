@@ -1,0 +1,30 @@
+=== Channel Variant Test — variant=D ===
+Time: 2026-02-10 21:43:23
+
+--- Common setup ---
+  nvmap_fd=4, ctrl_fd=5
+  compute_class=0xc7c0, sm=0x807
+  as_fd=6
+  tsg_fd=7
+  veid=1
+
+============================================================
+VARIANT D (large buf): gpfifo_size=3145728, flags=WC, gpu_map=NO, entries=1024
+============================================================
+  1. Alloc GPFIFO buffer...
+     handle=2147483675, dmabuf=8, size=3145728
+  2. Skip GPU map (not mapping before SETUP_BIND)
+  3. Alloc USERD buffer...
+     handle=2147483676, dmabuf=9
+  4. OPEN_CHANNEL...
+     ch_fd=10
+  5. AS_BIND...
+     OK
+  6. TSG_BIND...
+     OK
+  7. WDT disable...
+     OK
+  8. SETUP_BIND...
+     OK: token=511
+  9. ALLOC_OBJ_CTX (0xc7c0)...
+     >>> calling ioctl NOW on ch_fd=10

@@ -1,0 +1,25 @@
+# MLC LLM Jetson Orin AGX Docker Image
+# Based on dustynv's JetPack 6 L4T containers for Jetson compatibility
+#
+# Build: docker build -t mlc-jetson:latest -f Dockerfile.jetson .
+# Run:   ./run-mlc-docker.sh
+
+FROM dustynv/l4t-pytorch:r36.4.0 AS base
+
+# Install MLC LLM + TVM runtime
+# Try nightly wheel with CUDA support first, then the stable release
+RUN pip3 install --no-cache-dir \
+        mlc-llm mlc-ai-nightly 2>/dev/null || \
+    pip3 install --no-cache-dir \
+        mlc-ai-nightly -f https://mlc.ai/wheels 2>/dev/null || \
+    echo "WARNING: Pre-built MLC wheel not available, may need manual install"
+
+# Also install the serve dependencies
+RUN pip3 install --no-cache-dir fastapi uvicorn 2>/dev/null || true
+
+WORKDIR /workspace
+
+EXPOSE 8000
+
+ENTRYPOINT ["python3", "-m", "mlc_llm"]
+CMD ["chat", "HF://mlc-ai/Llama-3.2-1B-Instruct-q4f16_1-MLC"]

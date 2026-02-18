@@ -1,0 +1,2094 @@
+1380:82219 ioctl(3, _IOC(_IOC_WRITE, 0x4e, 0x3, 0x14), 0xffffffff98e8) = 0
+1381:82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0xf, 0x8), 0xffffffff9880) = 0
+1382:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x29, 0x18), 0xffffffff9920) = 0
+1383:82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0xf, 0x8), 0xffffffff9790) = 0
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  # Check lines around ALLOC_AS for open/close to understand fd state
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$ sed -n '1360,1375p' /tmp/cuda_trace.txt
+82219 openat(AT_FDCWD, "/dev/nvgpu/igpu0/prof", O_RDWR|O_CLOEXEC) = -1 EACCES (Permission denied)
+82219 ioctl(3, _IOC(_IOC_READ, 0x4e, 0x69, 0x30), 0xffffffff9b18) = 0
+82219 openat(AT_FDCWD, "/dev/dri", O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_DIRECTORY) = 6
+82219 openat(AT_FDCWD, "/dev/dri/renderD128", O_RDWR|O_CLOEXEC) = 7
+82219 ioctl(7, DRM_IOCTL_VERSION, 0xffffffff9980) = 0
+82219 ioctl(7, DRM_IOCTL_VERSION, 0xffffffff9b18) = 0
+82219 ioctl(7, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0xe, 0x10), 0xffffffff9b78) = -1 ENOTTY (Inappropriate ioctl for device)
+82219 openat(AT_FDCWD, "/dev/dri", O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_DIRECTORY) = 6
+82219 openat(AT_FDCWD, "/dev/dri/renderD128", O_RDWR|O_CLOEXEC) = 7
+82219 ioctl(7, DRM_IOCTL_VERSION, 0xffffffff9a20) = 0
+82219 openat(AT_FDCWD, "/dev/host1x-fence", O_RDWR|O_CLOEXEC) = 6
+82219 ioctl(6, _IOC(_IOC_READ|_IOC_WRITE, 0x58, 0x10, 0x8), 0xffffffff9bb0) = 0
+82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x8, 0x40), 0xffffffff9a58) = 0
+82219 ioctl(6, _IOC(_IOC_READ, 0x41, 0xc, 0x10), 0xffffffff9a48) = 0
+82219 ioctl(6, _IOC(_IOC_READ|_IOC_WRITE, 0x41, 0x8, 0x10), 0xffffffff99b0) = 0
+82219 ioctl(6, _IOC(_IOC_READ|_IOC_WRITE, 0x41, 0x8, 0x10), 0xffffffff99b0) = 0
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  sed -n '1360,1380p' /tmp/cuda_trace.txt
+82219 openat(AT_FDCWD, "/dev/nvgpu/igpu0/prof", O_RDWR|O_CLOEXEC) = -1 EACCES (Permission denied)
+82219 ioctl(3, _IOC(_IOC_READ, 0x4e, 0x69, 0x30), 0xffffffff9b18) = 0
+82219 openat(AT_FDCWD, "/dev/dri", O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_DIRECTORY) = 6
+82219 openat(AT_FDCWD, "/dev/dri/renderD128", O_RDWR|O_CLOEXEC) = 7
+82219 ioctl(7, DRM_IOCTL_VERSION, 0xffffffff9980) = 0
+82219 ioctl(7, DRM_IOCTL_VERSION, 0xffffffff9b18) = 0
+82219 ioctl(7, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0xe, 0x10), 0xffffffff9b78) = -1 ENOTTY (Inappropriate ioctl for device)
+82219 openat(AT_FDCWD, "/dev/dri", O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_DIRECTORY) = 6
+82219 openat(AT_FDCWD, "/dev/dri/renderD128", O_RDWR|O_CLOEXEC) = 7
+82219 ioctl(7, DRM_IOCTL_VERSION, 0xffffffff9a20) = 0
+82219 openat(AT_FDCWD, "/dev/host1x-fence", O_RDWR|O_CLOEXEC) = 6
+82219 ioctl(6, _IOC(_IOC_READ|_IOC_WRITE, 0x58, 0x10, 0x8), 0xffffffff9bb0) = 0
+82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x8, 0x40), 0xffffffff9a58) = 0
+82219 ioctl(6, _IOC(_IOC_READ, 0x41, 0xc, 0x10), 0xffffffff9a48) = 0
+82219 ioctl(6, _IOC(_IOC_READ|_IOC_WRITE, 0x41, 0x8, 0x10), 0xffffffff99b0) = 0
+82219 ioctl(6, _IOC(_IOC_READ|_IOC_WRITE, 0x41, 0x8, 0x10), 0xffffffff99b0) = 0
+82219 ioctl(6, _IOC(_IOC_READ|_IOC_WRITE, 0x41, 0x6, 0x20), 0xffffffff9968) = 0
+82219 ioctl(6, _IOC(_IOC_READ|_IOC_WRITE, 0x41, 0x6, 0x20), 0xffffffff9968) = 0
+82219 ioctl(6, _IOC(_IOC_READ|_IOC_WRITE, 0x41, 0x6, 0x20), 0xffffffffaa18) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0, 0x8), 0xffffffff9900) = 0
+82219 ioctl(3, _IOC(_IOC_WRITE, 0x4e, 0x3, 0x14), 0xffffffff98e8) = 0
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  nix develop .#detective --command bash -c '
+> source /home/agent/jetpack-nixos/examples/tinygrad/strace-cuda.sh
+> strace -e ioctl -f "$PYTHON_PATH" -c "
+> import os, ctypes, fcntl
+> from ctypes import c_uint32, c_int32, c_uint64
+> 
+> class nvgpu_alloc_as_args(ctypes.Structure):
+>     _fields_ = [
+>         (\"big_page_size\", c_uint32),
+>         (\"as_fd\",         c_int32),
+>         (\"flags\",         c_uint32),
+>         (\"reserved\",      c_uint32),
+>         (\"va_range_start\", c_uint64),
+>         (\"va_range_end\",   c_uint64),
+>         (\"va_range_split\", c_uint64),
+>         (\"padding\",       c_uint32 * 6),
+>     ]
+> 
+> nvmap_fd = os.open(\"/dev/nvmap\", os.O_RDWR | os.O_CLOEXEC)
+> ctrl_fd = os.open(\"/dev/nvgpu/igpu0/ctrl\", os.O_RDWR | os.O_CLOEXEC)
+> print(f\"nvmap_fd={nvmap_fd}, ctrl_fd={ctrl_fd}\")
+> 
+> args = nvgpu_alloc_as_args()
+> args.big_page_size = 0
+> args.flags = 0
+> ioc = (3 << 30) | (64 << 16) | (0x47 << 8) | 8  # _IOWR(G, 8, 64)
+> print(f\"ioctl code: 0x{ioc:08x}\")
+> print(f\"struct size: {ctypes.sizeof(args)}\")
+> try:
+>     ret = fcntl.ioctl(ctrl_fd, ioc, args)
+>     print(f\"SUCCESS: as_fd={args.as_fd}\")
+> except OSError as e:
+>     print(f\"FAILED: {e}\")
+> " 2>&1 | grep -E "ioctl|nvmap|ctrl|SUCCESS|FAILED|struct|code"
+> '
+warning: Git tree '/home/agent/jetpack-nixos' is dirty
+Result: [1. 2. 3.]
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  nix develop .#detective --command strace -e ioctl /nix/store/d86p3fy3827yqc5kzwbqiqvkf1mm73p6-python3-3.13.11-env/bin/python3 -c "
+> import os, ctypes, fcntl
+> from ctypes import c_uint32, c_int32, c_uint64
+> 
+> class nvgpu_alloc_as_args(ctypes.Structure):
+>     _fields_ = [
+>         ('big_page_size', c_uint32),
+>         ('as_fd',         c_int32),
+>         ('flags',         c_uint32),
+>         ('reserved',      c_uint32),
+>         ('va_range_start', c_uint64),
+>         ('va_range_end',   c_uint64),
+>         ('va_range_split', c_uint64),
+>         ('padding',       c_uint32 * 6),
+>     ]
+> 
+> nvmap_fd = os.open('/dev/nvmap', os.O_RDWR | os.O_CLOEXEC)
+> ctrl_fd = os.open('/dev/nvgpu/igpu0/ctrl', os.O_RDWR | os.O_CLOEXEC)
+> print(f'nvmap_fd={nvmap_fd}, ctrl_fd={ctrl_fd}')
+> 
+> args = nvgpu_alloc_as_args()
+> ioc = (3 << 30) | (64 << 16) | (0x47 << 8) | 8
+> print(f'ioctl code: 0x{ioc:08x}, struct size: {ctypes.sizeof(args)}')
+> try:
+>     ret = fcntl.ioctl(ctrl_fd, ioc, args)
+>     print(f'SUCCESS: as_fd={args.as_fd}')
+> except OSError as e:
+>     print(f'FAILED: {e}')
+> " 2>&1 | tail -20
+ioctl(3, TCGETS, 0xffffffffb200)        = -1 ENOTTY (Inappropriate ioctl for device)
+ioctl(3, TCGETS, 0xffffffffaa00)        = -1 ENOTTY (Inappropriate ioctl for device)
+ioctl(3, TCGETS, 0xffffffffaa00)        = -1 ENOTTY (Inappropriate ioctl for device)
+ioctl(3, TCGETS, 0xffffffffa200)        = -1 ENOTTY (Inappropriate ioctl for device)
+ioctl(3, TCGETS, 0xffffffffa200)        = -1 ENOTTY (Inappropriate ioctl for device)
+ioctl(3, TCGETS, 0xffffffff9a00)        = -1 ENOTTY (Inappropriate ioctl for device)
+ioctl(3, TCGETS, 0xffffffff9a00)        = -1 ENOTTY (Inappropriate ioctl for device)
+ioctl(3, TCGETS, 0xffffffff9a00)        = -1 ENOTTY (Inappropriate ioctl for device)
+ioctl(3, TCGETS, 0xffffffff9a00)        = -1 ENOTTY (Inappropriate ioctl for device)
+ioctl(3, TCGETS, 0xffffffff9200)        = -1 ENOTTY (Inappropriate ioctl for device)
+ioctl(3, TCGETS, 0xffffffff9200)        = -1 ENOTTY (Inappropriate ioctl for device)
+ioctl(3, TCGETS, 0xffffffffaa00)        = -1 ENOTTY (Inappropriate ioctl for device)
+ioctl(3, TCGETS, 0xffffffffaa00)        = -1 ENOTTY (Inappropriate ioctl for device)
+ioctl(3, TCGETS, 0xffffffffaa00)        = -1 ENOTTY (Inappropriate ioctl for device)
+ioctl(3, TCGETS, 0xffffffffaa00)        = -1 ENOTTY (Inappropriate ioctl for device)
+ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x8, 0x40), 0xffffffffb650) = -1 EINVAL (Invalid argument)
+nvmap_fd=3, ctrl_fd=4
+ioctl code: 0xc0404708, struct size: 64
+FAILED: [Errno 22] Invalid argument
++++ exited with 0 +++
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  find /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources -name "*.c" | xargs grep -l "gk20a_as_alloc_share" 2>/dev/null
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_as.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_ctrl.c
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  find /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources -name "*.c" -o -name "*.h" | xargs grep -rn "gk20a_as_alloc_share" 2>/dev/null
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_as.c:418:        err = gk20a_as_alloc_share(g,
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_ctrl.c:688:      err = gk20a_as_alloc_share(g, args->big_page_size,
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  ls -la /dev/nvgpu/igpu0/
+total 0
+drwxr-xr-x 2 root root      300 Jan  1  1970 .
+drwxr-xr-x 3 root root       60 Jan  1  1970 ..
+crw-rw---- 1 root video 484, 12 Jan  1  1970 as
+crw-rw---- 1 root video 484, 13 Jan  1  1970 channel
+crw-rw---- 1 root video 484, 14 Jan  1  1970 ctrl
+crw------- 1 root root  484, 15 Jan  1  1970 ctxsw
+crw------- 1 root root  484, 16 Jan  1  1970 dbg
+crw-r----- 1 root video 484, 21 Jan  1  1970 nvsched
+crw------- 1 root root  484, 22 Jan  1  1970 nvsched_ctrl_fifo
+crw-rw---- 1 root video 485,  1 Jan  1  1970 power
+crw------- 1 root root  484, 17 Jan  1  1970 prof
+crw------- 1 root root  484, 18 Jan  1  1970 prof-ctx
+crw------- 1 root root  484, 19 Jan  1  1970 prof-dev
+crw-rw---- 1 root root  484, 20 Jan  1  1970 sched
+crw-rw---- 1 root video 484, 23 Jan  1  1970 tsg
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  nix develop .#default --command python3 -c "
+> import os
+> try:
+>     as_fd = os.open('/dev/nvgpu/igpu0/as', os.O_RDWR | os.O_CLOEXEC)
+>     print(f'SUCCESS: as_fd={as_fd}')
+>     os.close(as_fd)
+> except OSError as e:
+>     print(f'FAILED: {e}')
+> "
+warning: Git tree '/home/agent/jetpack-nixos' is dirty
+
+=== tinygrad dev shell (Orin AGX / CUDA 12.6) ===
+
+Quick test (CPU):
+  python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+Quick test (CUDA):
+  CUDA=1 python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+LLM examples (clone tinygrad repo first):
+  git clone --depth 1 https://github.com/tinygrad/tinygrad.git
+  cd tinygrad && CUDA=1 python3 examples/gpt2.py --count 20
+
+PYTHONPATH includes /home/agent/jetpack-nixos/examples/tinygrad/tinygrad for the 'extra' module.
+
+FAILED: [Errno 22] Invalid argument: '/dev/nvgpu/igpu0/as'
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  # Check dmesg for nvgpu-related messages
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$ dmesg | grep -i "nvgpu\|igpu\|gk20a\|ga10b\|power" | tail -30
+dmesg: read kernel buffer failed: Operation not permitted
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  dmesg | grep -i "nvgpu\|igpu\|gk20a\|ga10b\|power" | tail -30
+dmesg: read kernel buffer failed: Operation not permitted
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  sudo dmesg | grep -i "nvgpu\|igpu\|ga10b" | tail -30
+[   12.120195] nvgpu: 17000000.gpu          nvgpu_nvhost_syncpt_init:122  [INFO]  syncpt_unit_base 60000000 syncpt_unit_size 4000000 size 10000
+[   12.966379] nvgpu: 17000000.gpu                  gk20a_scale_init:541  [INFO]  enabled scaling for GPU
+[ 5160.147073] nvgpu: 17000000.gpu                 tpc_pg_mask_store:1116 [INFO]  no value change, same mask already set
+[ 5567.536001] nvgpu: 17000000.gpu                 tpc_pg_mask_store:1116 [INFO]  no value change, same mask already set
+[ 6490.569573] nvgpu: 17000000.gpu                 tpc_pg_mask_store:1116 [INFO]  no value change, same mask already set
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  find /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources -name "*.c" -o -name "*.h" | xargs grep -l "gk20a_as_alloc_share\|nvgpu_as_alloc_share\|vm_gk20a_init\|nvgpu_vm_init" 2>/dev/null | sort -u
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_as.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_ctrl.c
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  find /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu -name "vm*.c" -o -name "as*.c" | head -10
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  find /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu -type f -name "*.c" | wc -l && find /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu -type d | head -20
+5
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  id && groups
+uid=1001(agent) gid=100(users) groups=100(users),1(wheel),26(video),303(render)
+users wheel video render
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  # Extract common nvgpu source from BSP to find gk20a_as_alloc_share
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$ cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$ # The sources are in kernel_oot_modules_src.tbz2 which we already have
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$ ls *.tbz2 2>/dev/null || ls *.tar* 2>/dev/null || echo "Looking for source archives..."
+public_sources.tbz2
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$ ls -la /tmp/l4t_sources/ 2>/dev/null || echo "No tmp sources"
+No tmp sources
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$  ls /tmp/l4t_sources/ 2>/dev/null || echo "Not found"
+Not found
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$ ls /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/ | head -10
+Linux_for_Tegra
+nvgpu
+nvidia-oot
+public_sources.tbz2
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$  ls /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/
+Linux_for_Tegra  nvgpu  nvidia-oot  public_sources.tbz2
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$  # Extract just the common nvgpu AS/VM code from the existing source tree
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$ ls /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ 2>/dev/null | head -5
+kernel_oot_modules_src.tbz2
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$  ls /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/
+kernel_oot_modules_src.tbz2
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$  # Extract gk20a_as_alloc_share from the OOT modules source
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$ cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$ tar -tjf Linux_for_Tegra/source/kernel_oot_modules_src.tbz2 | grep -i "common.*as\|mm.*vm\|mm.*as\|as_share" | head -20
+nvgpu/drivers/gpu/nvgpu/common/vgpu/mm/vm_vgpu.c
+nvgpu/drivers/gpu/nvgpu/common/pmu/boardobj/boardobjgrpmask.c
+nvgpu/drivers/gpu/nvgpu/common/mm/vm_area.c
+nvgpu/drivers/gpu/nvgpu/common/mm/vm_remap.c
+nvgpu/drivers/gpu/nvgpu/common/mm/as.c
+nvgpu/drivers/gpu/nvgpu/common/mm/vm.c
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$  tar -tjf Linux_for_Tegra/source/kernel_oot_modules_src.tbz2 2>/dev/null | grep -i "common.*as\|mm_gk20a\|as_share" | head -20
+nvgpu/drivers/gpu/nvgpu/common/pmu/boardobj/boardobjgrpmask.c
+nvgpu/drivers/gpu/nvgpu/common/mm/as.c
+nvgpu/drivers/gpu/nvgpu/hal/mm/mm_gk20a.c
+nvgpu/drivers/gpu/nvgpu/hal/mm/mm_gk20a.h
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$  tar -xjf Linux_for_Tegra/source/kernel_oot_modules_src.tbz2 nvgpu/drivers/gpu/nvgpu/common/mm/as.c nvgpu/drivers/gpu/nvgpu/common/mm/vm.c nvgpu/drivers/gpu/nvgpu/common/mm/ 2>/dev/null
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$ ls nvgpu/drivers/gpu/nvgpu/common/mm/ 2>/dev/null
+allocators  as.c  comptags.c  dma.c  gmmu  ipa_pa_cache.c  mm.c  nvgpu_mem.c  nvgpu_sgt.c  vidmem.c  vm_area.c  vm.c  vm_remap.c
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$  ls nvgpu/drivers/gpu/nvgpu/common/mm/
+allocators  as.c  comptags.c  dma.c  gmmu  ipa_pa_cache.c  mm.c  nvgpu_mem.c  nvgpu_sgt.c  vidmem.c  vm_area.c  vm.c  vm_remap.c
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$  grep -n "gk20a_as_alloc_share" nvgpu/drivers/gpu/nvgpu/common/mm/as.c
+148:int gk20a_as_alloc_share(struct gk20a *g,
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$  grep -n "gk20a_vm_alloc_share" nvgpu/drivers/gpu/nvgpu/common/mm/vm.c
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$  grep -rn "gk20a_vm_alloc_share" nvgpu/
+nvgpu/drivers/gpu/nvgpu/common/mm/as.c:51:static int gk20a_vm_alloc_share(struct gk20a_as_share *as_share,
+nvgpu/drivers/gpu/nvgpu/common/mm/as.c:176:     err = gk20a_vm_alloc_share(as_share, big_page_size, flags,
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$  nix develop .#default --command python3 -c "
+> import os, ctypes, fcntl
+> from test_nvgpu import *
+> 
+> # Open devices
+> nvmap_fd = os.open('/dev/nvmap', os.O_RDWR | os.O_CLOEXEC)
+> ctrl_fd = os.open('/dev/nvgpu/igpu0/ctrl', os.O_RDWR | os.O_CLOEXEC)
+> 
+> # Get GPU characteristics to find big_page_size default
+> chars = nvgpu_gpu_characteristics()
+> get_chars = nvgpu_gpu_get_characteristics()
+> get_chars.gpu_characteristics_buf_size = ctypes.sizeof(chars)
+> get_chars.gpu_characteristics_buf_addr = ctypes.addressof(chars)
+> nv_ioctl(ctrl_fd, NVGPU_GPU_IOCTL_GET_CHARACTERISTICS, get_chars)
+> 
+> big_page_size = chars.big_page_size
+> print(f'big_page_size from chars: {big_page_size}')
+> print(f'max_va_bits: {chars.max_va_bits}')
+> 
+> # From gk20a_as_dev_open: 
+> # big_page_size = g->ops.mm.gmmu.get_default_big_page_size()  
+> # va_range_start = big_page_size << 10
+> # va_range_end = mm->channel.user_size
+> # 
+> # For Ampere/ga10b with 40-bit VA space:
+> # Typical user_size is something like 256GB or the whole 40-bit VA space minus kernel area
+> # Let's try the standard values
+> 
+> # If big_page_size report is 0, the default in code is usually 64K or 128K
+> # Let's try 64K first
+> for bp_size in [65536, 131072]:
+>     va_start = bp_size << 10  # = big_page_size * 1024
+>     # For 40-bit VA: total = 1TB. user typically gets most of it.
+>     # channel.user_size for GA10B is typically 0xFE00000000 (1016GB)
+>     # or simply (1 << max_va_bits) - kernel_size
+>     for va_end_shift in [38, 39, 40]:
+>         va_end = (1 << va_end_shift) - (1 << 32)  # subtract kernel_size estimate
+>         args = nvgpu_alloc_as_args()
+>         args.big_page_size = bp_size
+>         args.flags = 2  # UNIFIED_VA
+>         args.va_range_start = va_start
+>         args.va_range_end = va_end 
+>         args.va_range_split = 0  # must be 0 for UNIFIED_VA
+>         try:
+>             nv_ioctl(ctrl_fd, NVGPU_GPU_IOCTL_ALLOC_AS, args)
+>             print(f'  SUCCESS: bp={bp_size}, start=0x{va_start:x}, end=0x{va_end:x}, as_fd={args.as_fd}')
+>             os.close(args.as_fd)
+>         except OSError as e:
+>             print(f'  bp={bp_size}, start=0x{va_start:x}, end=0x{va_end:x}: {e}')
+> 
+> os.close(ctrl_fd)
+> os.close(nvmap_fd)
+> "
+path '/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources' does not contain a 'flake.nix', searching up
+warning: Git tree '/home/agent/jetpack-nixos' is dirty
+
+=== tinygrad dev shell (Orin AGX / CUDA 12.6) ===
+
+Quick test (CPU):
+  python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+Quick test (CUDA):
+  CUDA=1 python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+LLM examples (clone tinygrad repo first):
+  git clone --depth 1 https://github.com/tinygrad/tinygrad.git
+  cd tinygrad && CUDA=1 python3 examples/gpt2.py --count 20
+
+PYTHONPATH includes /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/tinygrad for the 'extra' module.
+
+Traceback (most recent call last):
+  File "<string>", line 3, in <module>
+    from test_nvgpu import *
+ModuleNotFoundError: No module named 'test_nvgpu'
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$  cd /home/agent/jetpack-nixos/examples/tinygrad && nix develop .#default --command python3 -c "
+> import os, ctypes, fcntl
+> from test_nvgpu import *
+> 
+> # Open devices
+> nvmap_fd = os.open('/dev/nvmap', os.O_RDWR | os.O_CLOEXEC)
+> ctrl_fd = os.open('/dev/nvgpu/igpu0/ctrl', os.O_RDWR | os.O_CLOEXEC)
+> 
+> # Get GPU characteristics
+> chars = nvgpu_gpu_characteristics()
+> get_chars = nvgpu_gpu_get_characteristics()
+> get_chars.gpu_characteristics_buf_size = ctypes.sizeof(chars)
+> get_chars.gpu_characteristics_buf_addr = ctypes.addressof(chars)
+> nv_ioctl(ctrl_fd, NVGPU_GPU_IOCTL_GET_CHARACTERISTICS, get_chars)
+> print(f'big_page_size from chars: {chars.big_page_size}')
+> print(f'max_va_bits: {chars.max_va_bits}')
+> 
+> # Try different combinations
+> for bp_size in [65536, 131072]:
+>     va_start = bp_size << 10
+>     for va_end in [(1 << 38) - (1 << 32), (1 << 39) - (1 << 32), (1 << 40) - (1 << 32)]:
+>         args = nvgpu_alloc_as_args()
+>         args.big_page_size = bp_size
+>         args.flags = 2  # UNIFIED_VA
+>         args.va_range_start = va_start
+>         args.va_range_end = va_end
+>         args.va_range_split = 0
+>         try:
+>             nv_ioctl(ctrl_fd, NVGPU_GPU_IOCTL_ALLOC_AS, args)
+>             print(f'  OK: bp={bp_size}, start=0x{va_start:x}, end=0x{va_end:x}, as_fd={args.as_fd}')
+>             os.close(args.as_fd)
+>         except OSError as e:
+>             print(f'  FAIL: bp={bp_size}, start=0x{va_start:x}, end=0x{va_end:x}: {e}')
+> os.close(ctrl_fd)
+> os.close(nvmap_fd)
+> "
+warning: Git tree '/home/agent/jetpack-nixos' is dirty
+
+=== tinygrad dev shell (Orin AGX / CUDA 12.6) ===
+
+Quick test (CPU):
+  python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+Quick test (CUDA):
+  CUDA=1 python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+LLM examples (clone tinygrad repo first):
+  git clone --depth 1 https://github.com/tinygrad/tinygrad.git
+  cd tinygrad && CUDA=1 python3 examples/gpt2.py --count 20
+
+PYTHONPATH includes /home/agent/jetpack-nixos/examples/tinygrad/tinygrad for the 'extra' module.
+
+big_page_size from chars: 0
+Traceback (most recent call last):
+  File "<string>", line 16, in <module>
+    print(f'max_va_bits: {chars.max_va_bits}')
+                          ^^^^^^^^^^^^^^^^^
+AttributeError: 'nvgpu_gpu_characteristics' object has no attribute 'max_va_bits'
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  cd /home/agent/jetpack-nixos/examples/tinygrad && nix develop .#default --command python3 -c "
+> import os, ctypes, fcntl
+> from test_nvgpu import *
+> 
+> nvmap_fd = os.open('/dev/nvmap', os.O_RDWR | os.O_CLOEXEC)
+> ctrl_fd = os.open('/dev/nvgpu/igpu0/ctrl', os.O_RDWR | os.O_CLOEXEC)
+> 
+> chars = nvgpu_gpu_characteristics()
+> get_chars = nvgpu_gpu_get_characteristics()
+> get_chars.gpu_characteristics_buf_size = ctypes.sizeof(chars)
+> get_chars.gpu_characteristics_buf_addr = ctypes.addressof(chars)
+> nv_ioctl(ctrl_fd, NVGPU_GPU_IOCTL_GET_CHARACTERISTICS, get_chars)
+> print(f'big_page_size: {chars.big_page_size}, gpu_va_bit_count: {chars.gpu_va_bit_count}')
+> print(f'compr_page_size: {chars.compression_page_size}')
+> 
+> # big_page_size is 0 from characteristics. The kernel code uses get_default_big_page_size()
+> # For GA10B this is typically 64KB
+> # va_range_start must be PDE aligned and non-zero
+> # va_range_end must be PDE aligned and non-zero and > va_range_start
+> 
+> # Try with 64K big pages, various VA ranges
+> bp_size = 65536  # 64KB
+> va_start = bp_size << 10  # standard: big_page_size * 1024 = 64MB
+> 
+> # PDE coverage depends on page table level - for 40-bit VA with 64K big pages
+> # PDE coverage = 2^(level2_bit_count) = 2^21 or 2^25 depending on implementation
+> # Let's try values that are multiples of large powers of 2
+> for va_end_desc, va_end in [
+>     ('256GB',   0x4000000000),
+>     ('128GB',   0x2000000000),
+>     ('64GB',    0x1000000000),
+>     ('1TB-4GB', (1<<40) - (1<<32)),
+>     ('512GB',   0x8000000000),
+> ]:
+>     args = nvgpu_alloc_as_args()
+>     args.big_page_size = bp_size
+>     args.flags = 2  # UNIFIED_VA
+>     args.va_range_start = va_start
+>     args.va_range_end = va_end
+>     args.va_range_split = 0
+>     try:
+>         nv_ioctl(ctrl_fd, NVGPU_GPU_IOCTL_ALLOC_AS, args)
+>         print(f'  OK: start=0x{va_start:x} end={va_end_desc}(0x{va_end:x}) as_fd={args.as_fd}')
+>         os.close(args.as_fd)
+>     except OSError as e:
+>         print(f'  FAIL: start=0x{va_start:x} end={va_end_desc}(0x{va_end:x}): {e}')
+> os.close(ctrl_fd)
+> os.close(nvmap_fd)
+> "
+warning: Git tree '/home/agent/jetpack-nixos' is dirty
+
+=== tinygrad dev shell (Orin AGX / CUDA 12.6) ===
+
+Quick test (CPU):
+  python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+Quick test (CUDA):
+  CUDA=1 python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+LLM examples (clone tinygrad repo first):
+  git clone --depth 1 https://github.com/tinygrad/tinygrad.git
+  cd tinygrad && CUDA=1 python3 examples/gpt2.py --count 20
+
+PYTHONPATH includes /home/agent/jetpack-nixos/examples/tinygrad/tinygrad for the 'extra' module.
+
+big_page_size: 0, gpu_va_bit_count: 40
+compr_page_size: 65536
+  FAIL: start=0x4000000 end=256GB(0x4000000000): [Errno 22] Invalid argument
+  FAIL: start=0x4000000 end=128GB(0x2000000000): [Errno 22] Invalid argument
+  FAIL: start=0x4000000 end=64GB(0x1000000000): [Errno 22] Invalid argument
+  FAIL: start=0x4000000 end=1TB-4GB(0xff00000000): [Errno 22] Invalid argument
+  FAIL: start=0x4000000 end=512GB(0x8000000000): [Errno 22] Invalid argument
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  find /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources -name "*.c" -o -name "*.h" | xargs grep -rn "pde_coverage_bit_count" 2>/dev/null
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/as.c:86:      pde_size = BIT64(nvgpu_vm_pde_coverage_bit_count(g, big_page_size));
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/vm.c:175:u32 nvgpu_vm_pde_coverage_bit_count(struct gk20a *g, u64 big_page_size)
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/vm.c:316:     u64 pde_size = BIT64(nvgpu_vm_pde_coverage_bit_count(
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/allocators/buddy_allocator.c:1445:            u64 pde_size = BIT64(nvgpu_vm_pde_coverage_bit_count(
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_ctrl.c:487:      gpu.pde_coverage_bit_count =
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu-ctrl.h:241:      __u32 pde_coverage_bit_count;
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  cd /home/agent/jetpack-nixos/examples/tinygrad && nix develop .#default --command python3 -c "
+> from test_nvgpu import *
+> # Check if pde_coverage_bit_count is in our struct
+> fields = [name for name, _ in nvgpu_gpu_characteristics._fields_]
+> print('Has pde_coverage_bit_count:', 'pde_coverage_bit_count' in fields)
+> 
+> # Read it from GPU
+> import os
+> nvmap_fd = os.open('/dev/nvmap', os.O_RDWR | os.O_CLOEXEC)
+> ctrl_fd = os.open('/dev/nvgpu/igpu0/ctrl', os.O_RDWR | os.O_CLOEXEC)
+> chars = nvgpu_gpu_characteristics()
+> get_chars = nvgpu_gpu_get_characteristics()
+> get_chars.gpu_characteristics_buf_size = ctypes.sizeof(chars)
+> get_chars.gpu_characteristics_buf_addr = ctypes.addressof(chars)
+> nv_ioctl(ctrl_fd, NVGPU_GPU_IOCTL_GET_CHARACTERISTICS, get_chars)
+> print(f'pde_coverage_bit_count: {chars.pde_coverage_bit_count}')
+> print(f'PDE size: {1 << chars.pde_coverage_bit_count} bytes = {(1 << chars.pde_coverage_bit_count) / (1024*1024)} MB')
+> os.close(ctrl_fd)
+> os.close(nvmap_fd)
+> "
+warning: Git tree '/home/agent/jetpack-nixos' is dirty
+
+=== tinygrad dev shell (Orin AGX / CUDA 12.6) ===
+
+Quick test (CPU):
+  python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+Quick test (CUDA):
+  CUDA=1 python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+LLM examples (clone tinygrad repo first):
+  git clone --depth 1 https://github.com/tinygrad/tinygrad.git
+  cd tinygrad && CUDA=1 python3 examples/gpt2.py --count 20
+
+PYTHONPATH includes /home/agent/jetpack-nixos/examples/tinygrad/tinygrad for the 'extra' module.
+
+Has pde_coverage_bit_count: True
+pde_coverage_bit_count: 47
+PDE size: 140737488355328 bytes = 134217728.0 MB
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  cd /home/agent/jetpack-nixos/examples/tinygrad && nix develop .#default --command python3 -c "
+> import os, ctypes, fcntl
+> from test_nvgpu import *
+> 
+> nvmap_fd = os.open('/dev/nvmap', os.O_RDWR | os.O_CLOEXEC)
+> ctrl_fd = os.open('/dev/nvgpu/igpu0/ctrl', os.O_RDWR | os.O_CLOEXEC)
+> chars = nvgpu_gpu_characteristics()
+> get_chars = nvgpu_gpu_get_characteristics()
+> get_chars.gpu_characteristics_buf_size = ctypes.sizeof(chars)
+> get_chars.gpu_characteristics_buf_addr = ctypes.addressof(chars)
+> nv_ioctl(ctrl_fd, NVGPU_GPU_IOCTL_GET_CHARACTERISTICS, get_chars)
+> 
+> # Dump raw bytes
+> raw = bytes(chars)
+> # Print first 128 bytes as hex + field annotations 
+> for i in range(0, min(128, len(raw)), 4):
+>     val = int.from_bytes(raw[i:i+4], 'little')
+>     print(f'  offset {i:3d} (0x{i:02x}): 0x{val:08x} = {val}')
+> 
+> print()
+> print(f'Available big page sizes: 0x{chars.available_big_page_sizes:08x}')
+> print(f'PDE coverage raw u32: {chars.pde_coverage_bit_count}')
+> "
+warning: Git tree '/home/agent/jetpack-nixos' is dirty
+
+=== tinygrad dev shell (Orin AGX / CUDA 12.6) ===
+
+Quick test (CPU):
+  python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+Quick test (CUDA):
+  CUDA=1 python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+LLM examples (clone tinygrad repo first):
+  git clone --depth 1 https://github.com/tinygrad/tinygrad.git
+  cd tinygrad && CUDA=1 python3 examples/gpt2.py --count 20
+
+PYTHONPATH includes /home/agent/jetpack-nixos/examples/tinygrad/tinygrad for the 'extra' module.
+
+  offset   0 (0x00): 0x00000170 = 368
+  offset   4 (0x04): 0x0000000b = 11
+  offset   8 (0x08): 0x000000a1 = 161
+  offset  12 (0x0c): 0x00000001 = 1
+  offset  16 (0x10): 0xffffffff = 4294967295
+  offset  20 (0x14): 0x00000000 = 0
+  offset  24 (0x18): 0x00400000 = 4194304
+  offset  28 (0x1c): 0x00000000 = 0
+  offset  32 (0x20): 0x00000000 = 0
+  offset  36 (0x24): 0x00000000 = 0
+  offset  40 (0x28): 0x00000004 = 4
+  offset  44 (0x2c): 0x00000020 = 32
+  offset  48 (0x30): 0x00000000 = 0
+  offset  52 (0x34): 0x00010000 = 65536
+  offset  56 (0x38): 0x0000002f = 47
+  offset  60 (0x3c): 0x00000000 = 0
+  offset  64 (0x40): 0x7f5d035d = 2136802141
+  offset  68 (0x44): 0x01bf5fff = 29319167
+  offset  72 (0x48): 0x0000902d = 36909
+  offset  76 (0x4c): 0x0000c797 = 51095
+  offset  80 (0x50): 0x0000c7c0 = 51136
+  offset  84 (0x54): 0x0000c76f = 51055
+  offset  88 (0x58): 0x0000a140 = 41280
+  offset  92 (0x5c): 0x0000c7b5 = 51125
+  offset  96 (0x60): 0x00000001 = 1
+  offset 100 (0x64): 0x00000807 = 2055
+  offset 104 (0x68): 0x00000806 = 2054
+  offset 108 (0x6c): 0x00000060 = 96
+  offset 112 (0x70): 0x0015002c = 1376300
+  offset 116 (0x74): 0x00800021 = 8388641
+  offset 120 (0x78): 0x0028000e = 2621454
+  offset 124 (0x7c): 0x00000002 = 2
+
+Available big page sizes: 0x00000000
+PDE coverage raw u32: 47
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  cd /home/agent/jetpack-nixos/examples/tinygrad && nix develop .#default --command python3 -c "
+> import os, ctypes, fcntl
+> from test_nvgpu import *
+> 
+> nvmap_fd = os.open('/dev/nvmap', os.O_RDWR | os.O_CLOEXEC)
+> ctrl_fd = os.open('/dev/nvgpu/igpu0/ctrl', os.O_RDWR | os.O_CLOEXEC)
+> 
+> # Try brute force: different PDE bit counts from 12 to 40
+> for pde_bits in range(12, 41):
+>     pde_size = 1 << pde_bits
+>     va_start = pde_size  # lowest valid aligned address
+>     va_end = (1 << 40) - pde_size  # make sure it's aligned too
+>     # Round va_end down to pde alignment
+>     va_end = va_end & ~(pde_size - 1)
+>     if va_end <= va_start:
+>         continue
+>     args = nvgpu_alloc_as_args()
+>     args.big_page_size = 0
+>     args.flags = 2  # UNIFIED_VA
+>     args.va_range_start = va_start
+>     args.va_range_end = va_end
+>     args.va_range_split = 0
+>     try:
+>         nv_ioctl(ctrl_fd, NVGPU_GPU_IOCTL_ALLOC_AS, args)
+>         print(f'  OK! pde_bits={pde_bits}, start=0x{va_start:x}, end=0x{va_end:x}, as_fd={args.as_fd}')
+>         os.close(args.as_fd)
+>         break  # found it!
+>     except OSError as e:
+>         pass  # silently try next
+> 
+> else:
+>     print('All failed! Trying with big_page_size=65536...')
+>     for pde_bits in range(12, 41):
+>         pde_size = 1 << pde_bits
+>         va_start = pde_size
+>         va_end = (1 << 40) - pde_size
+>         va_end = va_end & ~(pde_size - 1)
+>         if va_end <= va_start:
+>             continue
+>         args = nvgpu_alloc_as_args()
+>         args.big_page_size = 65536
+>         args.flags = 2  # UNIFIED_VA
+>         args.va_range_start = va_start
+>         args.va_range_end = va_end
+>         args.va_range_split = 0
+>         try:
+>             nv_ioctl(ctrl_fd, NVGPU_GPU_IOCTL_ALLOC_AS, args)
+>             print(f'  OK! pde_bits={pde_bits}, bp=65536, start=0x{va_start:x}, end=0x{va_end:x}, as_fd={args.as_fd}')
+>             os.close(args.as_fd)
+>             break
+>         except OSError as e:
+>             pass
+> 
+> os.close(ctrl_fd)
+> os.close(nvmap_fd)
+> "
+warning: Git tree '/home/agent/jetpack-nixos' is dirty
+
+=== tinygrad dev shell (Orin AGX / CUDA 12.6) ===
+
+Quick test (CPU):
+  python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+Quick test (CUDA):
+  CUDA=1 python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+LLM examples (clone tinygrad repo first):
+  git clone --depth 1 https://github.com/tinygrad/tinygrad.git
+  cd tinygrad && CUDA=1 python3 examples/gpt2.py --count 20
+
+PYTHONPATH includes /home/agent/jetpack-nixos/examples/tinygrad/tinygrad for the 'extra' module.
+
+  OK! pde_bits=21, start=0x200000, end=0xffffe00000, as_fd=5
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  cd /home/agent/jetpack-nixos/examples/tinygrad && nix develop .#default --command python3 test_nvgpu.py
+warning: Git tree '/home/agent/jetpack-nixos' is dirty
+
+=== tinygrad dev shell (Orin AGX / CUDA 12.6) ===
+
+Quick test (CPU):
+  python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+Quick test (CUDA):
+  CUDA=1 python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+LLM examples (clone tinygrad repo first):
+  git clone --depth 1 https://github.com/tinygrad/tinygrad.git
+  cd tinygrad && CUDA=1 python3 examples/gpt2.py --count 20
+
+PYTHONPATH includes /home/agent/jetpack-nixos/examples/tinygrad/tinygrad for the 'extra' module.
+
+============================================================
+Phase 1: Direct nvgpu/nvmap ioctl test
+Testing GPU access WITHOUT CUDA
+============================================================
+
+Opened /dev/nvmap → fd=3
+Opened /dev/nvgpu/igpu0/ctrl → fd=4
+
+=== GET_CHARACTERISTICS ===
+  Architecture:     0x0170 = GA100 (Ampere)
+  Implementation:   0x000b
+  Revision:         161
+  Num GPC:          1
+  NUMA domain:      -1
+  L2 cache size:    4194304 bytes (4096 KB)
+  VRAM size:        0 bytes
+  Num TPC/GPC:      4
+  Bus type:         32
+  Big page size:    0
+  Compr page size:  65536
+  GPU VA bits:      40
+  GPC mask:         0x00000001
+  SM arch version:  0x00000807
+  SM arch SPA ver:  0x00000806
+  SM arch warp cnt: 96
+  Flags:            0x01bf5fff7f5d035d
+  Active flags:     SUPPORT_PARTIAL_MAPPINGS, SUPPORT_SYNC_FENCE_FDS, SUPPORT_CYCLE_STATS, SUPPORT_CYCLE_STATS_SNAPSHOT, SUPPORT_CLOCK_CONTROLS, SUPPORT_GET_CURRENT, SUPPORT_GET_POWER, SUPPORT_FECS_CTXSW_TRACE, SUPPORT_DETERMINISTIC_SUBMIT_NO_JOBTRACKING, SUPPORT_DETERMINISTIC_SUBMIT_FULL, SUPPORT_IO_COHERENCE, SUPPORT_TSG_SUBCONTEXTS, SUPPORT_DETERMINISTIC_OPTS, SUPPORT_SCG, SUPPORT_SYNCPOINT_ADDRESS, SUPPORT_VPR, SUPPORT_USER_SYNCPOINT, CAN_RAILGATE, SUPPORT_USERMODE_SUBMIT, SUPPORT_COMPUTE
+
+  === Classes (critical for compute) ===
+  2D class:         0x902d
+  3D class:         0xc797
+  Compute class:    0xc7c0
+  GPFIFO class:     0xc76f
+  I2M class:        0xa140
+  DMA copy class:   0xc7b5
+
+  === Memory ===
+  Max FBPs:         2
+  FBP en mask:      0x00000003
+  Max LTC/FBP:      1
+  Max LTS/LTC:      4
+  Num LTC:          2
+  Max GPFIFO:       268435456
+  Max freq:         1300000000 Hz (1300 MHz)
+  Chip name:        ga10b
+
+  === IOCTL interface levels ===
+  GPU ioctl last:   44
+  TSG ioctl last:   21
+  Channel last:     128
+  AS ioctl last:    14
+  ✓ GET_CHARACTERISTICS succeeded!
+
+=== ZCULL_GET_CTX_SIZE ===
+  ZCull ctx size:   164352 bytes
+  ✓ ZCULL_GET_CTX_SIZE succeeded!
+
+=== NVMAP GET_AVAILABLE_HEAPS ===
+  Heap bitmask:     0x0000000010000004
+  Available heaps:  CARVEOUT_FSI (1<<2), CARVEOUT_VPR (1<<28)
+  ✓ GET_AVAILABLE_HEAPS succeeded!
+
+=== NVMAP CREATE + ALLOC (4096 bytes) ===
+  Created handle:   2147487039 (0x80000d3f)
+  Allocated with heap=IOVMM (0x40000000), alignment=4096
+  Got dmabuf fd:    5
+  ✓ NVMAP CREATE + ALLOC succeeded!
+
+=== ALLOC_AS (create address space) ===
+  AS fd:            6
+  VA range:         0x000000200000 - 0x00ffffe00000
+  ✓ ALLOC_AS succeeded!
+
+=== MAP_BUFFER_EX (map 4096 bytes into GPU VA) ===
+  GPU VA:           0x00ffffa00000
+  ✓ MAP_BUFFER_EX succeeded!
+
+============================================================
+FULL CHANNEL + COMPUTE SETUP
+============================================================
+
+=== OPEN_TSG ===
+  TSG fd:           7
+
+=== CREATE_SUBCONTEXT ===
+
+  ✗ FULL CHANNEL + COMPUTE SETUP failed: [Errno 22] Invalid argument
+Traceback (most recent call last):
+  File "/home/agent/jetpack-nixos/examples/tinygrad/test_nvgpu.py", line 937, in main
+    channel_info = test_full_channel_setup(ctrl_fd, as_fd, nvmap_fd, compute_class)
+  File "/home/agent/jetpack-nixos/examples/tinygrad/test_nvgpu.py", line 704, in test_full_channel_setup
+    nv_ioctl(tsg_fd, NVGPU_TSG_IOCTL_CREATE_SUBCONTEXT, subctx)
+    ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/agent/jetpack-nixos/examples/tinygrad/test_nvgpu.py", line 54, in nv_ioctl
+    ret = fcntl.ioctl(fd, ioc_code, buf)
+OSError: [Errno 22] Invalid argument
+
+============================================================
+Results: 6/7 tests passed
+Some tests failed — check errors above
+============================================================
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  cd /home/agent/jetpack-nixos/examples/tinygrad && nix develop .#default --command python3 test_nvgpu.py
+warning: Git tree '/home/agent/jetpack-nixos' is dirty
+
+=== tinygrad dev shell (Orin AGX / CUDA 12.6) ===
+
+Quick test (CPU):
+  python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+Quick test (CUDA):
+  CUDA=1 python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+LLM examples (clone tinygrad repo first):
+  git clone --depth 1 https://github.com/tinygrad/tinygrad.git
+  cd tinygrad && CUDA=1 python3 examples/gpt2.py --count 20
+
+PYTHONPATH includes /home/agent/jetpack-nixos/examples/tinygrad/tinygrad for the 'extra' module.
+
+============================================================
+Phase 1: Direct nvgpu/nvmap ioctl test
+Testing GPU access WITHOUT CUDA
+============================================================
+
+Opened /dev/nvmap → fd=3
+Opened /dev/nvgpu/igpu0/ctrl → fd=4
+
+=== GET_CHARACTERISTICS ===
+  Architecture:     0x0170 = GA100 (Ampere)
+  Implementation:   0x000b
+  Revision:         161
+  Num GPC:          1
+  NUMA domain:      -1
+  L2 cache size:    4194304 bytes (4096 KB)
+  VRAM size:        0 bytes
+  Num TPC/GPC:      4
+  Bus type:         32
+  Big page size:    0
+  Compr page size:  65536
+  GPU VA bits:      40
+  GPC mask:         0x00000001
+  SM arch version:  0x00000807
+  SM arch SPA ver:  0x00000806
+  SM arch warp cnt: 96
+  Flags:            0x01bf5fff7f5d035d
+  Active flags:     SUPPORT_PARTIAL_MAPPINGS, SUPPORT_SYNC_FENCE_FDS, SUPPORT_CYCLE_STATS, SUPPORT_CYCLE_STATS_SNAPSHOT, SUPPORT_CLOCK_CONTROLS, SUPPORT_GET_CURRENT, SUPPORT_GET_POWER, SUPPORT_FECS_CTXSW_TRACE, SUPPORT_DETERMINISTIC_SUBMIT_NO_JOBTRACKING, SUPPORT_DETERMINISTIC_SUBMIT_FULL, SUPPORT_IO_COHERENCE, SUPPORT_TSG_SUBCONTEXTS, SUPPORT_DETERMINISTIC_OPTS, SUPPORT_SCG, SUPPORT_SYNCPOINT_ADDRESS, SUPPORT_VPR, SUPPORT_USER_SYNCPOINT, CAN_RAILGATE, SUPPORT_USERMODE_SUBMIT, SUPPORT_COMPUTE
+
+  === Classes (critical for compute) ===
+  2D class:         0x902d
+  3D class:         0xc797
+  Compute class:    0xc7c0
+  GPFIFO class:     0xc76f
+  I2M class:        0xa140
+  DMA copy class:   0xc7b5
+
+  === Memory ===
+  Max FBPs:         2
+  FBP en mask:      0x00000003
+  Max LTC/FBP:      1
+  Max LTS/LTC:      4
+  Num LTC:          2
+  Max GPFIFO:       268435456
+  Max freq:         1300000000 Hz (1300 MHz)
+  Chip name:        ga10b
+
+  === IOCTL interface levels ===
+  GPU ioctl last:   44
+  TSG ioctl last:   21
+  Channel last:     128
+  AS ioctl last:    14
+  ✓ GET_CHARACTERISTICS succeeded!
+
+=== ZCULL_GET_CTX_SIZE ===
+  ZCull ctx size:   164352 bytes
+  ✓ ZCULL_GET_CTX_SIZE succeeded!
+
+=== NVMAP GET_AVAILABLE_HEAPS ===
+  Heap bitmask:     0x0000000010000004
+  Available heaps:  CARVEOUT_FSI (1<<2), CARVEOUT_VPR (1<<28)
+  ✓ GET_AVAILABLE_HEAPS succeeded!
+
+=== NVMAP CREATE + ALLOC (4096 bytes) ===
+  Created handle:   2147487040 (0x80000d40)
+  Allocated with heap=IOVMM (0x40000000), alignment=4096
+  Got dmabuf fd:    5
+  ✓ NVMAP CREATE + ALLOC succeeded!
+
+=== ALLOC_AS (create address space) ===
+  AS fd:            6
+  VA range:         0x000000200000 - 0x00ffffe00000
+  ✓ ALLOC_AS succeeded!
+
+=== MAP_BUFFER_EX (map 4096 bytes into GPU VA) ===
+  GPU VA:           0x00ffffa00000
+  ✓ MAP_BUFFER_EX succeeded!
+
+============================================================
+FULL CHANNEL + COMPUTE SETUP
+============================================================
+
+=== OPEN_TSG ===
+  TSG fd:           7
+
+=== CREATE_SUBCONTEXT ===
+  VEID:             1
+
+=== OPEN_CHANNEL ===
+
+  ✗ FULL CHANNEL + COMPUTE SETUP failed: [Errno 25] Inappropriate ioctl for device
+Traceback (most recent call last):
+  File "/home/agent/jetpack-nixos/examples/tinygrad/test_nvgpu.py", line 945, in main
+    channel_info = test_full_channel_setup(ctrl_fd, as_fd, nvmap_fd, compute_class)
+  File "/home/agent/jetpack-nixos/examples/tinygrad/test_nvgpu.py", line 716, in test_full_channel_setup
+    ch_fd = test_open_channel(ctrl_fd)
+  File "/home/agent/jetpack-nixos/examples/tinygrad/test_nvgpu.py", line 693, in test_open_channel
+    nv_ioctl(ctrl_fd, NVGPU_GPU_IOCTL_OPEN_CHANNEL, args)
+    ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/agent/jetpack-nixos/examples/tinygrad/test_nvgpu.py", line 54, in nv_ioctl
+    ret = fcntl.ioctl(fd, ioc_code, buf)
+OSError: [Errno 25] Inappropriate ioctl for device
+
+============================================================
+Results: 6/7 tests passed
+Some tests failed — check errors above
+============================================================
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  # Check what ioctls CUDA uses for channel creation
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$ # Channel magic H=0x48, TSG magic T=0x54
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$ # Look for channel and TSG open patterns
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$ grep "ioctl.*0x54\|ioctl.*0x48\|channel\|tsg" /tmp/cuda_trace.txt | head -20
+82219 ioctl(7, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0xe, 0x10), 0xffffffff9b78) = -1 ENOTTY (Inappropriate ioctl for device)
+82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0x12, 0x10), 0xffffffffa378) = 0
+82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0xb, 0x18), 0xffffffff9890) = 0
+82219 ioctl(9, _IOC(_IOC_WRITE, 0x48, 0x77, 0x8), 0xffffffff98b0) = 0
+82219 ioctl(9, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x80, 0x68), 0xffffffff9840) = 0
+82219 ioctl(9, _IOC(_IOC_READ, 0x48, 0x7e, 0x10), 0xffffffff98a8) = 0
+82219 ioctl(9, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x6c, 0x10), 0xffffffff98a8) = 0
+82219 ioctl(9, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x6f, 0x18), 0xffffffff9890) = 0
+82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0xb, 0x18), 0xffffffff9890) = 0
+82219 ioctl(10, _IOC(_IOC_WRITE, 0x48, 0x77, 0x8), 0xffffffff98b0) = 0
+82219 ioctl(10, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x80, 0x68), 0xffffffff9840) = 0
+82219 ioctl(10, _IOC(_IOC_READ, 0x48, 0x7e, 0x10), 0xffffffff98a8) = 0
+82219 ioctl(10, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x6c, 0x10), 0xffffffff98a8) = 0
+82219 ioctl(10, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x6f, 0x18), 0xffffffff9890) = 0
+82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0xb, 0x18), 0xffffffff9890) = 0
+82219 ioctl(11, _IOC(_IOC_WRITE, 0x48, 0x77, 0x8), 0xffffffff98b0) = 0
+82219 ioctl(11, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x80, 0x68), 0xffffffff9840) = 0
+82219 ioctl(11, _IOC(_IOC_READ, 0x48, 0x7e, 0x10), 0xffffffff98a8) = 0
+82219 ioctl(11, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x6c, 0x10), 0xffffffff98a8) = 0
+82219 ioctl(11, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x6f, 0x18), 0xffffffff9890) = 0
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  grep -E "ioctl.*(0x54|0x48)" /tmp/cuda_trace.txt | head -20
+82219 ioctl(7, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0xe, 0x10), 0xffffffff9b78) = -1 ENOTTY (Inappropriate ioctl for device)
+82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0x12, 0x10), 0xffffffffa378) = 0
+82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0xb, 0x18), 0xffffffff9890) = 0
+82219 ioctl(9, _IOC(_IOC_WRITE, 0x48, 0x77, 0x8), 0xffffffff98b0) = 0
+82219 ioctl(9, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x80, 0x68), 0xffffffff9840) = 0
+82219 ioctl(9, _IOC(_IOC_READ, 0x48, 0x7e, 0x10), 0xffffffff98a8) = 0
+82219 ioctl(9, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x6c, 0x10), 0xffffffff98a8) = 0
+82219 ioctl(9, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x6f, 0x18), 0xffffffff9890) = 0
+82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0xb, 0x18), 0xffffffff9890) = 0
+82219 ioctl(10, _IOC(_IOC_WRITE, 0x48, 0x77, 0x8), 0xffffffff98b0) = 0
+82219 ioctl(10, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x80, 0x68), 0xffffffff9840) = 0
+82219 ioctl(10, _IOC(_IOC_READ, 0x48, 0x7e, 0x10), 0xffffffff98a8) = 0
+82219 ioctl(10, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x6c, 0x10), 0xffffffff98a8) = 0
+82219 ioctl(10, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x6f, 0x18), 0xffffffff9890) = 0
+82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0xb, 0x18), 0xffffffff9890) = 0
+82219 ioctl(11, _IOC(_IOC_WRITE, 0x48, 0x77, 0x8), 0xffffffff98b0) = 0
+82219 ioctl(11, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x80, 0x68), 0xffffffff9840) = 0
+82219 ioctl(11, _IOC(_IOC_READ, 0x48, 0x7e, 0x10), 0xffffffff98a8) = 0
+82219 ioctl(11, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x6c, 0x10), 0xffffffff98a8) = 0
+82219 ioctl(11, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x6f, 0x18), 0xffffffff9890) = 0
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  # TSG fd=8, channel fds=9,10,11. How are they opened?
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$ grep -n "openat.*nvgpu\|openat.*channel\|openat.*tsg" /tmp/cuda_trace.txt | head -10
+1331:82219 openat(AT_FDCWD, "/dev/nvgpu", O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_DIRECTORY) = 4
+1332:82219 openat(AT_FDCWD, "/dev/nvgpu/igpu0/power", O_RDWR|O_CLOEXEC) = 6
+1333:82219 openat(AT_FDCWD, "/dev/nvgpu/igpu0", O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_DIRECTORY) = 6
+1334:82219 openat(AT_FDCWD, "/dev/nvgpu/igpu0/ctrl", O_RDWR|O_CLOEXEC) = 4
+1347:82219 openat(AT_FDCWD, "/dev/nvgpu/igpu0/ctrl", O_RDWR|O_CLOEXEC) = 4
+1360:82219 openat(AT_FDCWD, "/dev/nvgpu/igpu0/prof", O_RDWR|O_CLOEXEC) = -1 EACCES (Permission denied)
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  grep -n "openat.*nvgpu" /tmp/cuda_trace.txt
+1331:82219 openat(AT_FDCWD, "/dev/nvgpu", O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_DIRECTORY) = 4
+1332:82219 openat(AT_FDCWD, "/dev/nvgpu/igpu0/power", O_RDWR|O_CLOEXEC) = 6
+1333:82219 openat(AT_FDCWD, "/dev/nvgpu/igpu0", O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_DIRECTORY) = 6
+1334:82219 openat(AT_FDCWD, "/dev/nvgpu/igpu0/ctrl", O_RDWR|O_CLOEXEC) = 4
+1347:82219 openat(AT_FDCWD, "/dev/nvgpu/igpu0/ctrl", O_RDWR|O_CLOEXEC) = 4
+1360:82219 openat(AT_FDCWD, "/dev/nvgpu/igpu0/prof", O_RDWR|O_CLOEXEC) = -1 EACCES (Permission denied)
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  # Check whether CUDA uses G:0x9 (OPEN_TSG) and G:0xb (OPEN_CHANNEL) on ctrl
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$ grep "ioctl(4.*0x47, 0x9\|ioctl(4.*0x47, 0xb" /tmp/cuda_trace.txt | head -5
+82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x9, 0x18), 0xffffffffa290) = 0
+82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0xb, 0x4), 0xffffffff98b0) = 0
+82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0xb, 0x4), 0xffffffff98b0) = 0
+82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0xb, 0x4), 0xffffffff98b0) = 0
+82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0xb, 0x4), 0xffffffff98b0) = 0
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  grep -P "ioctl\(4.*0x47, 0x(9|b)\b" /tmp/cuda_trace.txt | head -5
+82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x9, 0x18), 0xffffffffa290) = 0
+82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0xb, 0x4), 0xffffffff98b0) = 0
+82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0xb, 0x4), 0xffffffff98b0) = 0
+82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0xb, 0x4), 0xffffffff98b0) = 0
+82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0xb, 0x4), 0xffffffff98b0) = 0
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  cd /home/agent/jetpack-nixos/examples/tinygrad && nix develop .#default --command python3 test_nvgpu.py
+warning: Git tree '/home/agent/jetpack-nixos' is dirty
+
+=== tinygrad dev shell (Orin AGX / CUDA 12.6) ===
+
+Quick test (CPU):
+  python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+Quick test (CUDA):
+  CUDA=1 python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+LLM examples (clone tinygrad repo first):
+  git clone --depth 1 https://github.com/tinygrad/tinygrad.git
+  cd tinygrad && CUDA=1 python3 examples/gpt2.py --count 20
+
+PYTHONPATH includes /home/agent/jetpack-nixos/examples/tinygrad/tinygrad for the 'extra' module.
+
+============================================================
+Phase 1: Direct nvgpu/nvmap ioctl test
+Testing GPU access WITHOUT CUDA
+============================================================
+
+Opened /dev/nvmap → fd=3
+Opened /dev/nvgpu/igpu0/ctrl → fd=4
+
+=== GET_CHARACTERISTICS ===
+  Architecture:     0x0170 = GA100 (Ampere)
+  Implementation:   0x000b
+  Revision:         161
+  Num GPC:          1
+  NUMA domain:      -1
+  L2 cache size:    4194304 bytes (4096 KB)
+  VRAM size:        0 bytes
+  Num TPC/GPC:      4
+  Bus type:         32
+  Big page size:    0
+  Compr page size:  65536
+  GPU VA bits:      40
+  GPC mask:         0x00000001
+  SM arch version:  0x00000807
+  SM arch SPA ver:  0x00000806
+  SM arch warp cnt: 96
+  Flags:            0x01bf5fff7f5d035d
+  Active flags:     SUPPORT_PARTIAL_MAPPINGS, SUPPORT_SYNC_FENCE_FDS, SUPPORT_CYCLE_STATS, SUPPORT_CYCLE_STATS_SNAPSHOT, SUPPORT_CLOCK_CONTROLS, SUPPORT_GET_CURRENT, SUPPORT_GET_POWER, SUPPORT_FECS_CTXSW_TRACE, SUPPORT_DETERMINISTIC_SUBMIT_NO_JOBTRACKING, SUPPORT_DETERMINISTIC_SUBMIT_FULL, SUPPORT_IO_COHERENCE, SUPPORT_TSG_SUBCONTEXTS, SUPPORT_DETERMINISTIC_OPTS, SUPPORT_SCG, SUPPORT_SYNCPOINT_ADDRESS, SUPPORT_VPR, SUPPORT_USER_SYNCPOINT, CAN_RAILGATE, SUPPORT_USERMODE_SUBMIT, SUPPORT_COMPUTE
+
+  === Classes (critical for compute) ===
+  2D class:         0x902d
+  3D class:         0xc797
+  Compute class:    0xc7c0
+  GPFIFO class:     0xc76f
+  I2M class:        0xa140
+  DMA copy class:   0xc7b5
+
+  === Memory ===
+  Max FBPs:         2
+  FBP en mask:      0x00000003
+  Max LTC/FBP:      1
+  Max LTS/LTC:      4
+  Num LTC:          2
+  Max GPFIFO:       268435456
+  Max freq:         1300000000 Hz (1300 MHz)
+  Chip name:        ga10b
+
+  === IOCTL interface levels ===
+  GPU ioctl last:   44
+  TSG ioctl last:   21
+  Channel last:     128
+  AS ioctl last:    14
+  ✓ GET_CHARACTERISTICS succeeded!
+
+=== ZCULL_GET_CTX_SIZE ===
+  ZCull ctx size:   164352 bytes
+  ✓ ZCULL_GET_CTX_SIZE succeeded!
+
+=== NVMAP GET_AVAILABLE_HEAPS ===
+  Heap bitmask:     0x0000000010000004
+  Available heaps:  CARVEOUT_FSI (1<<2), CARVEOUT_VPR (1<<28)
+  ✓ GET_AVAILABLE_HEAPS succeeded!
+
+=== NVMAP CREATE + ALLOC (4096 bytes) ===
+  Created handle:   2147487041 (0x80000d41)
+  Allocated with heap=IOVMM (0x40000000), alignment=4096
+  Got dmabuf fd:    5
+  ✓ NVMAP CREATE + ALLOC succeeded!
+
+=== ALLOC_AS (create address space) ===
+  AS fd:            6
+  VA range:         0x000000200000 - 0x00ffffe00000
+  ✓ ALLOC_AS succeeded!
+
+=== MAP_BUFFER_EX (map 4096 bytes into GPU VA) ===
+  GPU VA:           0x00ffffa00000
+  ✓ MAP_BUFFER_EX succeeded!
+
+============================================================
+FULL CHANNEL + COMPUTE SETUP
+============================================================
+
+=== OPEN_TSG ===
+  TSG fd:           7
+
+=== CREATE_SUBCONTEXT ===
+  VEID:             1
+
+=== OPEN_CHANNEL ===
+  Channel fd:       8
+
+=== BIND_CHANNEL_EX ===
+
+  ✗ FULL CHANNEL + COMPUTE SETUP failed: 'nvgpu_tsg_create_subcontext_args' object has no attribute 'subctx_id'
+Traceback (most recent call last):
+  File "/home/agent/jetpack-nixos/examples/tinygrad/test_nvgpu.py", line 943, in main
+    channel_info = test_full_channel_setup(ctrl_fd, as_fd, nvmap_fd, compute_class)
+  File "/home/agent/jetpack-nixos/examples/tinygrad/test_nvgpu.py", line 720, in test_full_channel_setup
+    bind.subctx_id = subctx.subctx_id
+                     ^^^^^^^^^^^^^^^^
+AttributeError: 'nvgpu_tsg_create_subcontext_args' object has no attribute 'subctx_id'
+
+============================================================
+Results: 6/7 tests passed
+Some tests failed — check errors above
+============================================================
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  cd /home/agent/jetpack-nixos/examples/tinygrad && nix develop .#default --command python3 test_nvgpu.py
+warning: Git tree '/home/agent/jetpack-nixos' is dirty
+
+=== tinygrad dev shell (Orin AGX / CUDA 12.6) ===
+
+Quick test (CPU):
+  python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+Quick test (CUDA):
+  CUDA=1 python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+LLM examples (clone tinygrad repo first):
+  git clone --depth 1 https://github.com/tinygrad/tinygrad.git
+  cd tinygrad && CUDA=1 python3 examples/gpt2.py --count 20
+
+PYTHONPATH includes /home/agent/jetpack-nixos/examples/tinygrad/tinygrad for the 'extra' module.
+
+============================================================
+Phase 1: Direct nvgpu/nvmap ioctl test
+Testing GPU access WITHOUT CUDA
+============================================================
+
+Opened /dev/nvmap → fd=3
+Opened /dev/nvgpu/igpu0/ctrl → fd=4
+
+=== GET_CHARACTERISTICS ===
+  Architecture:     0x0170 = GA100 (Ampere)
+  Implementation:   0x000b
+  Revision:         161
+  Num GPC:          1
+  NUMA domain:      -1
+  L2 cache size:    4194304 bytes (4096 KB)
+  VRAM size:        0 bytes
+  Num TPC/GPC:      4
+  Bus type:         32
+  Big page size:    0
+  Compr page size:  65536
+  GPU VA bits:      40
+  GPC mask:         0x00000001
+  SM arch version:  0x00000807
+  SM arch SPA ver:  0x00000806
+  SM arch warp cnt: 96
+  Flags:            0x01bf5fff7f5d035d
+  Active flags:     SUPPORT_PARTIAL_MAPPINGS, SUPPORT_SYNC_FENCE_FDS, SUPPORT_CYCLE_STATS, SUPPORT_CYCLE_STATS_SNAPSHOT, SUPPORT_CLOCK_CONTROLS, SUPPORT_GET_CURRENT, SUPPORT_GET_POWER, SUPPORT_FECS_CTXSW_TRACE, SUPPORT_DETERMINISTIC_SUBMIT_NO_JOBTRACKING, SUPPORT_DETERMINISTIC_SUBMIT_FULL, SUPPORT_IO_COHERENCE, SUPPORT_TSG_SUBCONTEXTS, SUPPORT_DETERMINISTIC_OPTS, SUPPORT_SCG, SUPPORT_SYNCPOINT_ADDRESS, SUPPORT_VPR, SUPPORT_USER_SYNCPOINT, CAN_RAILGATE, SUPPORT_USERMODE_SUBMIT, SUPPORT_COMPUTE
+
+  === Classes (critical for compute) ===
+  2D class:         0x902d
+  3D class:         0xc797
+  Compute class:    0xc7c0
+  GPFIFO class:     0xc76f
+  I2M class:        0xa140
+  DMA copy class:   0xc7b5
+
+  === Memory ===
+  Max FBPs:         2
+  FBP en mask:      0x00000003
+  Max LTC/FBP:      1
+  Max LTS/LTC:      4
+  Num LTC:          2
+  Max GPFIFO:       268435456
+  Max freq:         1300000000 Hz (1300 MHz)
+  Chip name:        ga10b
+
+  === IOCTL interface levels ===
+  GPU ioctl last:   44
+  TSG ioctl last:   21
+  Channel last:     128
+  AS ioctl last:    14
+  ✓ GET_CHARACTERISTICS succeeded!
+
+=== ZCULL_GET_CTX_SIZE ===
+  ZCull ctx size:   164352 bytes
+  ✓ ZCULL_GET_CTX_SIZE succeeded!
+
+=== NVMAP GET_AVAILABLE_HEAPS ===
+  Heap bitmask:     0x0000000010000004
+  Available heaps:  CARVEOUT_FSI (1<<2), CARVEOUT_VPR (1<<28)
+  ✓ GET_AVAILABLE_HEAPS succeeded!
+
+=== NVMAP CREATE + ALLOC (4096 bytes) ===
+  Created handle:   2147487042 (0x80000d42)
+  Allocated with heap=IOVMM (0x40000000), alignment=4096
+  Got dmabuf fd:    5
+  ✓ NVMAP CREATE + ALLOC succeeded!
+
+=== ALLOC_AS (create address space) ===
+  AS fd:            6
+  VA range:         0x000000200000 - 0x00ffffe00000
+  ✓ ALLOC_AS succeeded!
+
+=== MAP_BUFFER_EX (map 4096 bytes into GPU VA) ===
+  GPU VA:           0x00ffffa00000
+  ✓ MAP_BUFFER_EX succeeded!
+
+============================================================
+FULL CHANNEL + COMPUTE SETUP
+============================================================
+
+=== OPEN_TSG ===
+  TSG fd:           7
+
+=== CREATE_SUBCONTEXT ===
+  VEID:             1
+
+=== OPEN_CHANNEL ===
+  Channel fd:       8
+
+=== BIND_CHANNEL_EX ===
+
+  ✗ FULL CHANNEL + COMPUTE SETUP failed: [Errno 22] Invalid argument
+Traceback (most recent call last):
+  File "/home/agent/jetpack-nixos/examples/tinygrad/test_nvgpu.py", line 941, in main
+    channel_info = test_full_channel_setup(ctrl_fd, as_fd, nvmap_fd, compute_class)
+  File "/home/agent/jetpack-nixos/examples/tinygrad/test_nvgpu.py", line 719, in test_full_channel_setup
+    nv_ioctl(tsg_fd, NVGPU_TSG_IOCTL_BIND_CHANNEL_EX, bind)
+    ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/agent/jetpack-nixos/examples/tinygrad/test_nvgpu.py", line 54, in nv_ioctl
+    ret = fcntl.ioctl(fd, ioc_code, buf)
+OSError: [Errno 22] Invalid argument
+
+============================================================
+Results: 6/7 tests passed
+Some tests failed — check errors above
+============================================================
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  cd /home/agent/jetpack-nixos/examples/tinygrad && nix develop .#default --command python3 -c "
+> from test_nvgpu import *
+> print(f'BIND_CHANNEL_EX ioctl: 0x{NVGPU_TSG_IOCTL_BIND_CHANNEL_EX:08x}')
+> print(f'Struct size: {ctypes.sizeof(nvgpu_tsg_bind_channel_ex_args)}')
+> # Expected from strace: _IOWR(0x54, 0xb, 0x18)
+> expected = (3 << 30) | (0x18 << 16) | (0x54 << 8) | 0xb
+> print(f'Expected:            0x{expected:08x}')
+> "
+warning: Git tree '/home/agent/jetpack-nixos' is dirty
+
+=== tinygrad dev shell (Orin AGX / CUDA 12.6) ===
+
+Quick test (CPU):
+  python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+Quick test (CUDA):
+  CUDA=1 python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+LLM examples (clone tinygrad repo first):
+  git clone --depth 1 https://github.com/tinygrad/tinygrad.git
+  cd tinygrad && CUDA=1 python3 examples/gpt2.py --count 20
+
+PYTHONPATH includes /home/agent/jetpack-nixos/examples/tinygrad/tinygrad for the 'extra' module.
+
+BIND_CHANNEL_EX ioctl: 0xc018540b
+Struct size: 24
+Expected:            0xc018540b
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  # Show the full sequence around TSG creation and channel binding
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$ grep -n -A0 "ioctl(4.*0x47, 0x9\|ioctl(4.*0x47, 0xb\|ioctl(8.*0x54\|ioctl(9.*0x48\|0x47, 0x28\|0x47, 0x29\|SET_NVMAP\|0x48, 0x5\b\|0x41, 0x1\b" /tmp/cuda_trace.txt | head -30
+1382:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x29, 0x18), 0xffffffff9920) = 0
+--
+1390:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x29, 0x18), 0xffffffff9810) = 0
+--
+1397:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x29, 0x18), 0xffffffff9810) = 0
+--
+1404:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x29, 0x18), 0xffffffff9810) = 0
+--
+1411:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x29, 0x18), 0xffffffff9810) = 0
+--
+1418:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x29, 0x18), 0xffffffff9810) = 0
+--
+1425:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x29, 0x18), 0xffffffff9810) = 0
+--
+1432:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x29, 0x18), 0xffffffff9810) = 0
+--
+1439:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x29, 0x18), 0xffffffff9810) = 0
+--
+1446:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x29, 0x18), 0xffffffff9810) = 0
+--
+1453:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x29, 0x18), 0xffffffff9810) = 0
+--
+1460:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x29, 0x18), 0xffffffff9810) = 0
+--
+1467:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x29, 0x18), 0xffffffff9810) = 0
+--
+1474:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x29, 0x18), 0xffffffff9810) = 0
+--
+1481:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x29, 0x18), 0xffffffff9810) = 0
+--
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  grep -nP "ioctl\((4|6|8|9|10|11).*_IOC" /tmp/cuda_trace.txt | grep -vP "TCGETS|DRM" | head -40
+1335:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x5, 0x10), 0xffffffff9b60) = 0
+1336:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0xa, 0x10), 0xffffffff99e8) = 0
+1337:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x2b, 0x10), 0xffffffff9a50) = 0
+1338:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x2c, 0x10), 0xffffffff9a50) = 0
+1339:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x26, 0x10), 0xffffffff99e8) = 0
+1340:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x13, 0x8), 0xffffffff9a58) = 0
+1341:82219 ioctl(4, _IOC(_IOC_READ, 0x47, 0x1, 0x4), 0xffffffff9aa0) = 0
+1342:82219 ioctl(4, _IOC(_IOC_READ, 0x47, 0x2, 0x28), 0xffffffff9aa0) = 0
+1343:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x1a, 0x10), 0xffffffff9c90) = 0
+1344:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x1c, 0x10), 0xffffffff9ce8) = 0
+1345:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x1c, 0x10), 0xffffffff9ce8) = 0
+1346:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x1d, 0x18), 0xffffffff9c20) = 0
+1348:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x5, 0x10), 0xffffffff9910) = 0
+1349:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0xa, 0x10), 0xffffffff9798) = 0
+1350:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x2b, 0x10), 0xffffffff9800) = 0
+1351:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x2c, 0x10), 0xffffffff9800) = 0
+1352:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x26, 0x10), 0xffffffff9798) = 0
+1353:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x13, 0x8), 0xffffffff9808) = 0
+1354:82219 ioctl(4, _IOC(_IOC_READ, 0x47, 0x1, 0x4), 0xffffffff9850) = 0
+1355:82219 ioctl(4, _IOC(_IOC_READ, 0x47, 0x2, 0x28), 0xffffffff9850) = 0
+1356:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x1a, 0x10), 0xffffffff9a40) = 0
+1357:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x1c, 0x10), 0xffffffff9a98) = 0
+1358:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x1c, 0x10), 0xffffffff9a98) = 0
+1359:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x1d, 0x18), 0xffffffff99d0) = 0
+1371:82219 ioctl(6, _IOC(_IOC_READ|_IOC_WRITE, 0x58, 0x10, 0x8), 0xffffffff9bb0) = 0
+1372:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x8, 0x40), 0xffffffff9a58) = 0
+1373:82219 ioctl(6, _IOC(_IOC_READ, 0x41, 0xc, 0x10), 0xffffffff9a48) = 0
+1374:82219 ioctl(6, _IOC(_IOC_READ|_IOC_WRITE, 0x41, 0x8, 0x10), 0xffffffff99b0) = 0
+1375:82219 ioctl(6, _IOC(_IOC_READ|_IOC_WRITE, 0x41, 0x8, 0x10), 0xffffffff99b0) = 0
+1376:82219 ioctl(6, _IOC(_IOC_READ|_IOC_WRITE, 0x41, 0x6, 0x20), 0xffffffff9968) = 0
+1377:82219 ioctl(6, _IOC(_IOC_READ|_IOC_WRITE, 0x41, 0x6, 0x20), 0xffffffff9968) = 0
+1378:82219 ioctl(6, _IOC(_IOC_READ|_IOC_WRITE, 0x41, 0x6, 0x20), 0xffffffffaa18) = 0
+1382:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x29, 0x18), 0xffffffff9920) = 0
+1385:82219 ioctl(6, _IOC(_IOC_READ|_IOC_WRITE, 0x41, 0x7, 0x28), 0xffffffff9860) = 0
+1386:82219 ioctl(6, _IOC(_IOC_READ|_IOC_WRITE, 0x41, 0x6, 0x20), 0xffffffff9fc8) = 0
+1390:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x29, 0x18), 0xffffffff9810) = 0
+1393:82219 ioctl(6, _IOC(_IOC_READ|_IOC_WRITE, 0x41, 0x7, 0x28), 0xffffffff9750) = 0
+1397:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x29, 0x18), 0xffffffff9810) = 0
+1400:82219 ioctl(6, _IOC(_IOC_READ|_IOC_WRITE, 0x41, 0x7, 0x28), 0xffffffff9750) = 0
+1404:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x29, 0x18), 0xffffffff9810) = 0
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  # Find where OPEN_TSG (G:9), OPEN_CHANNEL (G:0xb), and BIND are called
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$ grep -nP "ioctl\((4|8|9).*_IOC.*0x(47|54|48)" /tmp/cuda_trace.txt | grep -P "0x9,|0xb,|0x54" | head -20
+2080:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x9, 0x18), 0xffffffffa290) = 0
+2081:82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0x12, 0x10), 0xffffffffa378) = 0
+2087:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0xb, 0x4), 0xffffffff98b0) = 0
+2089:82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0xb, 0x18), 0xffffffff9890) = 0
+2140:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0xb, 0x4), 0xffffffff98b0) = 0
+2142:82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0xb, 0x18), 0xffffffff9890) = 0
+2161:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0xb, 0x4), 0xffffffff98b0) = 0
+2163:82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0xb, 0x18), 0xffffffff9890) = 0
+2190:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0xb, 0x4), 0xffffffff98b0) = 0
+2192:82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0xb, 0x18), 0xffffffff9890) = 0
+2211:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0xb, 0x4), 0xffffffff98b0) = 0
+2213:82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0xb, 0x18), 0xffffffff9890) = 0
+2240:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0xb, 0x4), 0xffffffff98b0) = 0
+2242:82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0xb, 0x18), 0xffffffff9890) = 0
+2261:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0xb, 0x4), 0xffffffff98b0) = 0
+2263:82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0xb, 0x18), 0xffffffff9890) = 0
+2290:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0xb, 0x4), 0xffffffff98b0) = 0
+2292:82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0xb, 0x18), 0xffffffff9890) = 0
+2313:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x9, 0x18), 0xffffffffa290) = 0
+2314:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0xb, 0x4), 0xffffffff98b0) = 0
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  grep -nP "0x47, 0x9,|0x47, 0xb,|0x54, 0x" /tmp/cuda_trace.txt | head -20
+2080:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x9, 0x18), 0xffffffffa290) = 0
+2081:82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0x12, 0x10), 0xffffffffa378) = 0
+2087:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0xb, 0x4), 0xffffffff98b0) = 0
+2089:82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0xb, 0x18), 0xffffffff9890) = 0
+2140:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0xb, 0x4), 0xffffffff98b0) = 0
+2142:82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0xb, 0x18), 0xffffffff9890) = 0
+2161:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0xb, 0x4), 0xffffffff98b0) = 0
+2163:82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0xb, 0x18), 0xffffffff9890) = 0
+2190:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0xb, 0x4), 0xffffffff98b0) = 0
+2192:82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0xb, 0x18), 0xffffffff9890) = 0
+2211:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0xb, 0x4), 0xffffffff98b0) = 0
+2213:82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0xb, 0x18), 0xffffffff9890) = 0
+2240:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0xb, 0x4), 0xffffffff98b0) = 0
+2242:82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0xb, 0x18), 0xffffffff9890) = 0
+2261:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0xb, 0x4), 0xffffffff98b0) = 0
+2263:82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0xb, 0x18), 0xffffffff9890) = 0
+2290:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0xb, 0x4), 0xffffffff98b0) = 0
+2292:82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0xb, 0x18), 0xffffffff9890) = 0
+2313:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x9, 0x18), 0xffffffffa290) = 0
+2314:82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0xb, 0x4), 0xffffffff98b0) = 0
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  sed -n '2080,2100p' /tmp/cuda_trace.txt
+82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x9, 0x18), 0xffffffffa290) = 0
+82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0x12, 0x10), 0xffffffffa378) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0, 0x8), 0xffffffff8e90) = 0
+82219 ioctl(3, _IOC(_IOC_WRITE, 0x4e, 0x3, 0x14), 0xffffffff8e78) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0xf, 0x8), 0xffffffff8e10) = 0
+82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x29, 0x18), 0xffffffff8eb0) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0xf, 0x8), 0xffffffff8fc0) = 0
+82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0xb, 0x4), 0xffffffff98b0) = 0
+82219 ioctl(6, _IOC(_IOC_READ|_IOC_WRITE, 0x41, 0x1, 0x4), 0xffffffff98b0) = 0
+82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0xb, 0x18), 0xffffffff9890) = 0
+82219 ioctl(9, _IOC(_IOC_WRITE, 0x48, 0x77, 0x8), 0xffffffff98b0) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0, 0x8), 0xffffffff9550) = 0
+82219 ioctl(3, _IOC(_IOC_WRITE, 0x4e, 0x3, 0x14), 0xffffffff9538) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0xf, 0x8), 0xffffffff9660) = 0
+82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x29, 0x18), 0xffffffff9710) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0xf, 0x8), 0xffffffff9700) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0, 0x8), 0xffffffff9550) = 0
+82219 ioctl(3, _IOC(_IOC_WRITE, 0x4e, 0x3, 0x14), 0xffffffff9538) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0xf, 0x8), 0xffffffff9660) = 0
+82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x29, 0x18), 0xffffffff9710) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0xf, 0x8), 0xffffffff9700) = 0
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  cd /home/agent/jetpack-nixos/examples/tinygrad && nix develop .#default --command python3 test_nvgpu.py
+warning: Git tree '/home/agent/jetpack-nixos' is dirty
+
+=== tinygrad dev shell (Orin AGX / CUDA 12.6) ===
+
+Quick test (CPU):
+  python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+Quick test (CUDA):
+  CUDA=1 python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+LLM examples (clone tinygrad repo first):
+  git clone --depth 1 https://github.com/tinygrad/tinygrad.git
+  cd tinygrad && CUDA=1 python3 examples/gpt2.py --count 20
+
+PYTHONPATH includes /home/agent/jetpack-nixos/examples/tinygrad/tinygrad for the 'extra' module.
+
+============================================================
+Phase 1: Direct nvgpu/nvmap ioctl test
+Testing GPU access WITHOUT CUDA
+============================================================
+
+Opened /dev/nvmap → fd=3
+Opened /dev/nvgpu/igpu0/ctrl → fd=4
+
+=== GET_CHARACTERISTICS ===
+  Architecture:     0x0170 = GA100 (Ampere)
+  Implementation:   0x000b
+  Revision:         161
+  Num GPC:          1
+  NUMA domain:      -1
+  L2 cache size:    4194304 bytes (4096 KB)
+  VRAM size:        0 bytes
+  Num TPC/GPC:      4
+  Bus type:         32
+  Big page size:    0
+  Compr page size:  65536
+  GPU VA bits:      40
+  GPC mask:         0x00000001
+  SM arch version:  0x00000807
+  SM arch SPA ver:  0x00000806
+  SM arch warp cnt: 96
+  Flags:            0x01bf5fff7f5d035d
+  Active flags:     SUPPORT_PARTIAL_MAPPINGS, SUPPORT_SYNC_FENCE_FDS, SUPPORT_CYCLE_STATS, SUPPORT_CYCLE_STATS_SNAPSHOT, SUPPORT_CLOCK_CONTROLS, SUPPORT_GET_CURRENT, SUPPORT_GET_POWER, SUPPORT_FECS_CTXSW_TRACE, SUPPORT_DETERMINISTIC_SUBMIT_NO_JOBTRACKING, SUPPORT_DETERMINISTIC_SUBMIT_FULL, SUPPORT_IO_COHERENCE, SUPPORT_TSG_SUBCONTEXTS, SUPPORT_DETERMINISTIC_OPTS, SUPPORT_SCG, SUPPORT_SYNCPOINT_ADDRESS, SUPPORT_VPR, SUPPORT_USER_SYNCPOINT, CAN_RAILGATE, SUPPORT_USERMODE_SUBMIT, SUPPORT_COMPUTE
+
+  === Classes (critical for compute) ===
+  2D class:         0x902d
+  3D class:         0xc797
+  Compute class:    0xc7c0
+  GPFIFO class:     0xc76f
+  I2M class:        0xa140
+  DMA copy class:   0xc7b5
+
+  === Memory ===
+  Max FBPs:         2
+  FBP en mask:      0x00000003
+  Max LTC/FBP:      1
+  Max LTS/LTC:      4
+  Num LTC:          2
+  Max GPFIFO:       268435456
+  Max freq:         1300000000 Hz (1300 MHz)
+  Chip name:        ga10b
+
+  === IOCTL interface levels ===
+  GPU ioctl last:   44
+  TSG ioctl last:   21
+  Channel last:     128
+  AS ioctl last:    14
+  ✓ GET_CHARACTERISTICS succeeded!
+
+=== ZCULL_GET_CTX_SIZE ===
+  ZCull ctx size:   164352 bytes
+  ✓ ZCULL_GET_CTX_SIZE succeeded!
+
+=== NVMAP GET_AVAILABLE_HEAPS ===
+  Heap bitmask:     0x0000000010000004
+  Available heaps:  CARVEOUT_FSI (1<<2), CARVEOUT_VPR (1<<28)
+  ✓ GET_AVAILABLE_HEAPS succeeded!
+
+=== NVMAP CREATE + ALLOC (4096 bytes) ===
+  Created handle:   2147487043 (0x80000d43)
+  Allocated with heap=IOVMM (0x40000000), alignment=4096
+  Got dmabuf fd:    5
+  ✓ NVMAP CREATE + ALLOC succeeded!
+
+=== ALLOC_AS (create address space) ===
+  AS fd:            6
+  VA range:         0x000000200000 - 0x00ffffe00000
+  ✓ ALLOC_AS succeeded!
+
+=== MAP_BUFFER_EX (map 4096 bytes into GPU VA) ===
+  GPU VA:           0x00ffffa00000
+  ✓ MAP_BUFFER_EX succeeded!
+
+============================================================
+FULL CHANNEL + COMPUTE SETUP
+============================================================
+
+=== OPEN_TSG ===
+  TSG fd:           7
+
+=== CREATE_SUBCONTEXT ===
+  VEID:             1
+
+=== OPEN_CHANNEL ===
+  Channel fd:       8
+
+=== AS BIND_CHANNEL ===
+  Bound channel 8 to AS 6
+
+=== BIND_CHANNEL_EX ===
+  Bound channel 8 to TSG 7
+
+=== CHANNEL WDT (disable) ===
+  Watchdog disabled
+
+=== Allocating GPFIFO + userd buffers ===
+  GPFIFO buffer:    handle=2147487044, dmabuf_fd=9, size=8192
+  userd buffer:     handle=2147487045, dmabuf_fd=10, size=4096
+
+=== SETUP_BIND (GPFIFO + userd + usermode submit) ===
+
+  ✗ FULL CHANNEL + COMPUTE SETUP failed: [Errno 22] Invalid argument
+Traceback (most recent call last):
+  File "/home/agent/jetpack-nixos/examples/tinygrad/test_nvgpu.py", line 941, in main
+    channel_info = test_full_channel_setup(ctrl_fd, as_fd, nvmap_fd, compute_class)
+  File "/home/agent/jetpack-nixos/examples/tinygrad/test_nvgpu.py", line 787, in test_full_channel_setup
+    nv_ioctl(ch_fd, NVGPU_IOCTL_CHANNEL_SETUP_BIND, setup)
+    ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/agent/jetpack-nixos/examples/tinygrad/test_nvgpu.py", line 54, in nv_ioctl
+    ret = fcntl.ioctl(fd, ioc_code, buf)
+OSError: [Errno 22] Invalid argument
+
+============================================================
+Results: 6/7 tests passed
+Some tests failed — check errors above
+============================================================
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  # Find SETUP_BIND (H:0x80 = 128) calls
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$ grep -n "0x48, 0x80" /tmp/cuda_trace.txt | head -5
+2103:82219 ioctl(9, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x80, 0x68), 0xffffffff9840) = 0
+2156:82219 ioctl(10, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x80, 0x68), 0xffffffff9840) = 0
+2177:82219 ioctl(11, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x80, 0x68), 0xffffffff9840) = 0
+2206:82219 ioctl(12, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x80, 0x68), 0xffffffff9840) = 0
+2227:82219 ioctl(13, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x80, 0x68), 0xffffffff9840) = 0
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  grep -nP "0x48, 0x80," /tmp/cuda_trace.txt | head -5
+2103:82219 ioctl(9, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x80, 0x68), 0xffffffff9840) = 0
+2156:82219 ioctl(10, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x80, 0x68), 0xffffffff9840) = 0
+2177:82219 ioctl(11, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x80, 0x68), 0xffffffff9840) = 0
+2206:82219 ioctl(12, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x80, 0x68), 0xffffffff9840) = 0
+2227:82219 ioctl(13, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x80, 0x68), 0xffffffff9840) = 0
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  # Look at what happens right before SETUP_BIND on fd=9
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$ sed -n '2090,2105p' /tmp/cuda_trace.txt
+82219 ioctl(9, _IOC(_IOC_WRITE, 0x48, 0x77, 0x8), 0xffffffff98b0) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0, 0x8), 0xffffffff9550) = 0
+82219 ioctl(3, _IOC(_IOC_WRITE, 0x4e, 0x3, 0x14), 0xffffffff9538) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0xf, 0x8), 0xffffffff9660) = 0
+82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x29, 0x18), 0xffffffff9710) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0xf, 0x8), 0xffffffff9700) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0, 0x8), 0xffffffff9550) = 0
+82219 ioctl(3, _IOC(_IOC_WRITE, 0x4e, 0x3, 0x14), 0xffffffff9538) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0xf, 0x8), 0xffffffff9660) = 0
+82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x29, 0x18), 0xffffffff9710) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0xf, 0x8), 0xffffffff9700) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0xf, 0x8), 0xffffffff9790) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0xf, 0x8), 0xffffffff9790) = 0
+82219 ioctl(9, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x80, 0x68), 0xffffffff9840) = 0
+82219 ioctl(9, _IOC(_IOC_READ, 0x48, 0x7e, 0x10), 0xffffffff98a8) = 0
+82219 ioctl(9, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x6c, 0x10), 0xffffffff98a8) = 0
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  sed -n '2088,2106p' /tmp/cuda_trace.txt
+82219 ioctl(6, _IOC(_IOC_READ|_IOC_WRITE, 0x41, 0x1, 0x4), 0xffffffff98b0) = 0
+82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0xb, 0x18), 0xffffffff9890) = 0
+82219 ioctl(9, _IOC(_IOC_WRITE, 0x48, 0x77, 0x8), 0xffffffff98b0) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0, 0x8), 0xffffffff9550) = 0
+82219 ioctl(3, _IOC(_IOC_WRITE, 0x4e, 0x3, 0x14), 0xffffffff9538) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0xf, 0x8), 0xffffffff9660) = 0
+82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x29, 0x18), 0xffffffff9710) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0xf, 0x8), 0xffffffff9700) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0, 0x8), 0xffffffff9550) = 0
+82219 ioctl(3, _IOC(_IOC_WRITE, 0x4e, 0x3, 0x14), 0xffffffff9538) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0xf, 0x8), 0xffffffff9660) = 0
+82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x29, 0x18), 0xffffffff9710) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0xf, 0x8), 0xffffffff9700) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0xf, 0x8), 0xffffffff9790) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0xf, 0x8), 0xffffffff9790) = 0
+82219 ioctl(9, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x80, 0x68), 0xffffffff9840) = 0
+82219 ioctl(9, _IOC(_IOC_READ, 0x48, 0x7e, 0x10), 0xffffffff98a8) = 0
+82219 ioctl(9, _IOC(_IOC_READ|_IOC_WRITE, 0x48, 0x6c, 0x10), 0xffffffff98a8) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0xf, 0x8), 0xffffffff9800) = 0
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  sed -n '2070,2090p' /tmp/cuda_trace.txt
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0xf, 0x8), 0xffffffff9680) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0xf, 0x8), 0xffffffff96a0) = 0
+82219 ioctl(6, _IOC(_IOC_READ|_IOC_WRITE, 0x41, 0x7, 0x28), 0xffffffff9750) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0, 0x8), 0xffffffff99d0) = 0
+82219 ioctl(3, _IOC(_IOC_WRITE, 0x4e, 0x3, 0x14), 0xffffffff99b8) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0xf, 0x8), 0xffffffff9950) = 0
+82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x29, 0x18), 0xffffffff99f0) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0xf, 0x8), 0xffffffff9860) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0xf, 0x8), 0xffffffff9880) = 0
+82219 ioctl(6, _IOC(_IOC_READ|_IOC_WRITE, 0x41, 0x7, 0x28), 0xffffffff9930) = 0
+82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x9, 0x18), 0xffffffffa290) = 0
+82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0x12, 0x10), 0xffffffffa378) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0, 0x8), 0xffffffff8e90) = 0
+82219 ioctl(3, _IOC(_IOC_WRITE, 0x4e, 0x3, 0x14), 0xffffffff8e78) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0xf, 0x8), 0xffffffff8e10) = 0
+82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0x29, 0x18), 0xffffffff8eb0) = 0
+82219 ioctl(3, _IOC(_IOC_READ|_IOC_WRITE, 0x4e, 0xf, 0x8), 0xffffffff8fc0) = 0
+82219 ioctl(4, _IOC(_IOC_READ|_IOC_WRITE, 0x47, 0xb, 0x4), 0xffffffff98b0) = 0
+82219 ioctl(6, _IOC(_IOC_READ|_IOC_WRITE, 0x41, 0x1, 0x4), 0xffffffff98b0) = 0
+82219 ioctl(8, _IOC(_IOC_READ|_IOC_WRITE, 0x54, 0xb, 0x18), 0xffffffff9890) = 0
+82219 ioctl(9, _IOC(_IOC_WRITE, 0x48, 0x77, 0x8), 0xffffffff98b0) = 0
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  find /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources -name "*.c" | head -5 && find /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources -path "*/channel/*" -o -path "*/fifo/*" | head -20
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvidia-oot/drivers/video/tegra/nvmap/nvmap_ioctl.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/dma.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/nvgpu_mem.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/as.c
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/vm_remap.c
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  find /tmp/l4t-sources-* -name "*.c" -path "*/channel*" 2>/dev/null | head -20; find /tmp/l4t-sources-* -name "*.c" -path "*/fifo*" 2>/dev/null | head -20; find /tmp/l4t-sources-* -name "*.c" | xargs grep -l "setup_bind\|channel_setup" 2>/dev/null | head -10
+find: ‘/tmp/l4t-sources-*’: No such file or directory
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  ls /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/
+Linux_for_Tegra  nvgpu  nvidia-oot  public_sources.tbz2
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  find /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu -name "*.c" | xargs grep -l "setup_bind\|channel_setup_bind" 2>/dev/null | head -10
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.c
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  grep -n "setup_bind" /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.c
+319:             * setup_bind gets called and wdt must not be changed after
+616:static u32 nvgpu_setup_bind_user_flags_to_common_flags(u32 user_flags)
+638:static void nvgpu_get_setup_bind_args(
+639:            struct nvgpu_channel_setup_bind_args *channel_setup_bind_args,
+640:            struct nvgpu_setup_bind_args *setup_bind_args)
+642:    setup_bind_args->num_gpfifo_entries =
+643:            channel_setup_bind_args->num_gpfifo_entries;
+644:    setup_bind_args->num_inflight_jobs =
+645:            channel_setup_bind_args->num_inflight_jobs;
+646:    setup_bind_args->userd_dmabuf_fd =
+647:            channel_setup_bind_args->userd_dmabuf_fd;
+648:    setup_bind_args->userd_dmabuf_offset =
+649:            channel_setup_bind_args->userd_dmabuf_offset;
+650:    setup_bind_args->gpfifo_dmabuf_fd =
+651:            channel_setup_bind_args->gpfifo_dmabuf_fd;
+652:    setup_bind_args->gpfifo_dmabuf_offset =
+653:            channel_setup_bind_args->gpfifo_dmabuf_offset;
+654:    setup_bind_args->flags = nvgpu_setup_bind_user_flags_to_common_flags(
+655:                    channel_setup_bind_args->flags);
+660:            struct nvgpu_setup_bind_args *setup_bind_args)
+662:    setup_bind_args->num_gpfifo_entries = alloc_gpfifo_ex_args->num_entries;
+663:    setup_bind_args->num_inflight_jobs =
+665:    setup_bind_args->flags = nvgpu_setup_bind_user_flags_to_common_flags(
+1279:           struct nvgpu_channel_setup_bind_args *channel_setup_bind_args =
+1280:                   (struct nvgpu_channel_setup_bind_args *)buf;
+1281:           struct nvgpu_setup_bind_args setup_bind_args;
+1283:           nvgpu_get_setup_bind_args(channel_setup_bind_args,
+1284:                           &setup_bind_args);
+1299:           if ((setup_bind_args.flags &
+1301:                   if (setup_bind_args.num_gpfifo_entries < 2U) {
+1307:                   if (setup_bind_args.num_gpfifo_entries < 4U) {
+1314:           if (!is_power_of_2(setup_bind_args.num_gpfifo_entries)) {
+1321:            * setup_bind_args.num_gpfifo_entries * nvgpu_get_gpfifo_entry_size() has
+1324:           if (setup_bind_args.num_gpfifo_entries >
+1331:           err = nvgpu_channel_setup_bind(ch, &setup_bind_args);
+1332:           channel_setup_bind_args->work_submit_token =
+1333:                   setup_bind_args.work_submit_token;
+1334:           channel_setup_bind_args->gpfifo_gpu_va =
+1335:                   setup_bind_args.gpfifo_gpu_va;
+1336:           channel_setup_bind_args->userd_gpu_va =
+1337:                   setup_bind_args.userd_gpu_va;
+1338:           channel_setup_bind_args->usermode_mmio_gpu_va =
+1339:                   setup_bind_args.usermode_mmio_gpu_va;
+1347:           struct nvgpu_setup_bind_args setup_bind_args;
+1349:           nvgpu_get_gpfifo_ex_args(alloc_gpfifo_ex_args, &setup_bind_args);
+1397:           err = nvgpu_channel_setup_bind(ch, &setup_bind_args);
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  find /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu -name "*.c" | xargs grep -l "nvgpu_channel_setup_bind" 2>/dev/null
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.c
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  find /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu -name "*.c" -o -name "*.h" | xargs grep -rn "nvgpu_channel_setup_bind" 2>/dev/null | head -20
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.c:639:           struct nvgpu_channel_setup_bind_args *channel_setup_bind_args,
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.c:1279:          struct nvgpu_channel_setup_bind_args *channel_setup_bind_args =
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.c:1280:                  (struct nvgpu_channel_setup_bind_args *)buf;
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.c:1331:          err = nvgpu_channel_setup_bind(ch, &setup_bind_args);
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.c:1397:          err = nvgpu_channel_setup_bind(ch, &setup_bind_args);
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu.h:1053:struct nvgpu_channel_setup_bind_args {
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu.h:1344:  _IOWR(NVGPU_IOCTL_MAGIC, 128, struct nvgpu_channel_setup_bind_args)
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu.h:1349:  sizeof(struct nvgpu_channel_setup_bind_args)
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  find /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu -name "*.c" -o -name "*.h" | xargs grep -rn "int nvgpu_channel_setup_bind\b" 2>/dev/null | head -10
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  find /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu -name "*.h" | xargs grep -l "nvgpu_channel_setup_bind" 2>/dev/null
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu.h
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  # The function must be in a .c file we haven't extracted yet. Let me search the BSP tarball.
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$ ls /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/
+mm
+
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  # The function must be in a .c file we haven't extracted yet. Let me search the BSP tarball.
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$ ls /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/
+mm
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  # Need to extract more source files from the BSP. Let me find the source tarball.
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$ cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$ tar tf public_sources.tbz2 2>/dev/null | grep -i "channel_setup_bind\|channel/\|fifo/" | head -20
+^C
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$  ls /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ 2>/dev/null | head -20
+kernel_oot_modules_src.tbz2
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$  ls /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/Linux_for_Tegra/source/ 2>/dev/null && echo "---" || echo "no source dir"; find /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/ -maxdepth 2 -name "*.tbz2" -o -name "*.tar*" 2>/dev/null | head -10
+kernel_oot_modules_src.tbz2
+---
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/public_sources.tbz2
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources && tar tf Linux_for_Tegra/source/kernel_oot_modules_src.tbz2 | grep -i "channel\|fifo" | grep "nvgpu" | head -30
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/tsg_vgpu.h
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/userd_vgpu.h
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/channel_vgpu.c
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/preempt_vgpu.c
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/fifo_vgpu.c
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/userd_vgpu.c
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/fifo_vgpu.h
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/runlist_vgpu.c
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/ramfc_vgpu.h
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/ramfc_vgpu.c
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/channel_vgpu.h
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/runlist_vgpu.h
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/tsg_vgpu.c
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/preempt_vgpu.h
+nvgpu/drivers/gpu/nvgpu/common/sync/channel_sync.c
+nvgpu/drivers/gpu/nvgpu/common/sync/channel_user_syncpt.c
+nvgpu/drivers/gpu/nvgpu/common/sync/channel_sync_syncpt.c
+nvgpu/drivers/gpu/nvgpu/common/sync/channel_sync_semaphore.c
+nvgpu/drivers/gpu/nvgpu/common/sync/channel_sync_priv.h
+nvgpu/drivers/gpu/nvgpu/common/sync/channel_user_syncpt_priv.h
+nvgpu/drivers/gpu/nvgpu/common/pmu/therm/therm_channel.h
+nvgpu/drivers/gpu/nvgpu/common/pmu/therm/therm_channel.c
+nvgpu/drivers/gpu/nvgpu/common/fifo/
+nvgpu/drivers/gpu/nvgpu/common/fifo/submit.c
+nvgpu/drivers/gpu/nvgpu/common/fifo/job.c
+nvgpu/drivers/gpu/nvgpu/common/fifo/userd.c
+nvgpu/drivers/gpu/nvgpu/common/fifo/watchdog.c
+nvgpu/drivers/gpu/nvgpu/common/fifo/engines.c
+nvgpu/drivers/gpu/nvgpu/common/fifo/channel_wdt.c
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$  tar tf Linux_for_Tegra/source/kernel_oot_modules_src.tbz2 | grep "nvgpu/.*fifo/" | head -20
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/tsg_vgpu.h
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/userd_vgpu.h
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/channel_vgpu.c
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/preempt_vgpu.c
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/fifo_vgpu.c
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/userd_vgpu.c
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/fifo_vgpu.h
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/runlist_vgpu.c
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/ramfc_vgpu.h
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/ramfc_vgpu.c
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/channel_vgpu.h
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/runlist_vgpu.h
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/tsg_vgpu.c
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/preempt_vgpu.h
+nvgpu/drivers/gpu/nvgpu/common/fifo/
+nvgpu/drivers/gpu/nvgpu/common/fifo/submit.c
+nvgpu/drivers/gpu/nvgpu/common/fifo/job.c
+nvgpu/drivers/gpu/nvgpu/common/fifo/userd.c
+nvgpu/drivers/gpu/nvgpu/common/fifo/watchdog.c
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$  tar tf Linux_for_Tegra/source/kernel_oot_modules_src.tbz2 | grep "nvgpu/.*fifo/.*channel\|nvgpu/.*channel_setup" | head -20
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/channel_vgpu.c
+nvgpu/drivers/gpu/nvgpu/common/vgpu/fifo/channel_vgpu.h
+nvgpu/drivers/gpu/nvgpu/common/fifo/channel_wdt.c
+nvgpu/drivers/gpu/nvgpu/common/fifo/channel.c
+nvgpu/drivers/gpu/nvgpu/common/fifo/channel_wdt.h
+nvgpu/drivers/gpu/nvgpu/common/fifo/channel_worker.c
+nvgpu/drivers/gpu/nvgpu/common/fifo/channel_worker.h
+nvgpu/drivers/gpu/nvgpu/hal/fifo/channel_gv100.c
+nvgpu/drivers/gpu/nvgpu/hal/fifo/channel_gv11b_fusa.c
+nvgpu/drivers/gpu/nvgpu/hal/fifo/channel_gk20a.h
+nvgpu/drivers/gpu/nvgpu/hal/fifo/channel_ga100_fusa.c
+nvgpu/drivers/gpu/nvgpu/hal/fifo/channel_gm20b.c
+nvgpu/drivers/gpu/nvgpu/hal/fifo/channel_gv100.h
+nvgpu/drivers/gpu/nvgpu/hal/fifo/channel_gm20b_fusa.c
+nvgpu/drivers/gpu/nvgpu/hal/fifo/channel_ga100.h
+nvgpu/drivers/gpu/nvgpu/hal/fifo/channel_gk20a.c
+nvgpu/drivers/gpu/nvgpu/hal/fifo/channel_gv11b.h
+nvgpu/drivers/gpu/nvgpu/hal/fifo/channel_gk20a_fusa.c
+nvgpu/drivers/gpu/nvgpu/hal/fifo/channel_ga10b_fusa.c
+nvgpu/drivers/gpu/nvgpu/hal/fifo/channel_gm20b.h
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources && tar xf Linux_for_Tegra/source/kernel_oot_modules_src.tbz2 nvgpu/drivers/gpu/nvgpu/common/fifo/channel.c 2>/dev/null && wc -l nvgpu/drivers/gpu/nvgpu/common/fifo/channel.c
+2390 nvgpu/drivers/gpu/nvgpu/common/fifo/channel.c
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$  grep -n "nvgpu_channel_setup_bind\|setup_bind\|EINVAL" /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/fifo/channel.c | head -30
+80:             struct nvgpu_setup_bind_args *args,
+180:            return -EINVAL;
+194:            return -EINVAL;
+279:                    return -EINVAL;
+282:            return -EINVAL;
+327:            struct nvgpu_setup_bind_args *args)
+1383:           struct nvgpu_setup_bind_args *args,
+1402:           struct nvgpu_setup_bind_args *args)
+1421:           err = -EINVAL;
+1452:static int channel_setup_bind_prechecks(struct nvgpu_channel *c,
+1453:           struct nvgpu_setup_bind_args *args)
+1462:           err = -EINVAL;
+1472:           err = -EINVAL;
+1479:                   "not bound to an address space at time of setup_bind");
+1480:           err = -EINVAL;
+1488:                   "not bound to tsg at time of setup_bind");
+1489:           err = -EINVAL;
+1517:           err = -EINVAL;
+1531:           err = -EINVAL;
+1540:int nvgpu_channel_setup_bind(struct nvgpu_channel *c,
+1541:           struct nvgpu_setup_bind_args *args)
+1546:   err = channel_setup_bind_prechecks(c, args);
+1554:                   err = -EINVAL;
+1604:           err = -EINVAL;
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$  grep -n "NVGPU_CHANNEL_SETUP_BIND_FLAGS" /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu.h
+1061: *        NVGPU_CHANNEL_SETUP_BIND_FLAGS_USERMODE_SUPPORT is set.
+1067:#define NVGPU_CHANNEL_SETUP_BIND_FLAGS_VPR_ENABLED         (1 << 0)
+1085:#define NVGPU_CHANNEL_SETUP_BIND_FLAGS_DETERMINISTIC       (1 << 1)
+1087:#define NVGPU_CHANNEL_SETUP_BIND_FLAGS_REPLAYABLE_FAULTS_ENABLE   (1 << 2)
+1098:#define NVGPU_CHANNEL_SETUP_BIND_FLAGS_USERMODE_SUPPORT    (1 << 3)
+1102:#define NVGPU_CHANNEL_SETUP_BIND_FLAGS_USERMODE_GPU_MAP_RESOURCES_SUPPORT  (1 << 4)
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$  cd /home/agent/jetpack-nixos/examples/tinygrad && nix develop .#detective --command python3 test_nvgpu.py 2>&1
+warning: Git tree '/home/agent/jetpack-nixos' is dirty
+/tmp/nix-shell.T6dWt9: line 2134: exec: python3: not found
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  cd /home/agent/jetpack-nixos/examples/tinygrad && nix develop --command python3 test_nvgpu.py 2>&1
+warning: Git tree '/home/agent/jetpack-nixos' is dirty
+
+=== tinygrad dev shell (Orin AGX / CUDA 12.6) ===
+
+Quick test (CPU):
+  python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+Quick test (CUDA):
+  CUDA=1 python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'
+
+LLM examples (clone tinygrad repo first):
+  git clone --depth 1 https://github.com/tinygrad/tinygrad.git
+  cd tinygrad && CUDA=1 python3 examples/gpt2.py --count 20
+
+PYTHONPATH includes /home/agent/jetpack-nixos/examples/tinygrad/tinygrad for the 'extra' module.
+
+============================================================
+Phase 1: Direct nvgpu/nvmap ioctl test
+Testing GPU access WITHOUT CUDA
+============================================================
+
+Opened /dev/nvmap → fd=3
+Opened /dev/nvgpu/igpu0/ctrl → fd=4
+
+=== GET_CHARACTERISTICS ===
+  Architecture:     0x0170 = GA100 (Ampere)
+  Implementation:   0x000b
+  Revision:         161
+  Num GPC:          1
+  NUMA domain:      -1
+  L2 cache size:    4194304 bytes (4096 KB)
+  VRAM size:        0 bytes
+  Num TPC/GPC:      4
+  Bus type:         32
+  Big page size:    0
+  Compr page size:  65536
+  GPU VA bits:      40
+  GPC mask:         0x00000001
+  SM arch version:  0x00000807
+  SM arch SPA ver:  0x00000806
+  SM arch warp cnt: 96
+  Flags:            0x01bf5fff7f5d035d
+  Active flags:     SUPPORT_PARTIAL_MAPPINGS, SUPPORT_SYNC_FENCE_FDS, SUPPORT_CYCLE_STATS, SUPPORT_CYCLE_STATS_SNAPSHOT, SUPPORT_CLOCK_CONTROLS, SUPPORT_GET_CURRENT, SUPPORT_GET_POWER, SUPPORT_FECS_CTXSW_TRACE, SUPPORT_DETERMINISTIC_SUBMIT_NO_JOBTRACKING, SUPPORT_DETERMINISTIC_SUBMIT_FULL, SUPPORT_IO_COHERENCE, SUPPORT_TSG_SUBCONTEXTS, SUPPORT_DETERMINISTIC_OPTS, SUPPORT_SCG, SUPPORT_SYNCPOINT_ADDRESS, SUPPORT_VPR, SUPPORT_USER_SYNCPOINT, CAN_RAILGATE, SUPPORT_USERMODE_SUBMIT, SUPPORT_COMPUTE
+
+  === Classes (critical for compute) ===
+  2D class:         0x902d
+  3D class:         0xc797
+  Compute class:    0xc7c0
+  GPFIFO class:     0xc76f
+  I2M class:        0xa140
+  DMA copy class:   0xc7b5
+
+  === Memory ===
+  Max FBPs:         2
+  FBP en mask:      0x00000003
+  Max LTC/FBP:      1
+  Max LTS/LTC:      4
+  Num LTC:          2
+  Max GPFIFO:       268435456
+  Max freq:         1300000000 Hz (1300 MHz)
+  Chip name:        ga10b
+
+  === IOCTL interface levels ===
+  GPU ioctl last:   44
+  TSG ioctl last:   21
+  Channel last:     128
+  AS ioctl last:    14
+  ✓ GET_CHARACTERISTICS succeeded!
+
+=== ZCULL_GET_CTX_SIZE ===
+  ZCull ctx size:   164352 bytes
+  ✓ ZCULL_GET_CTX_SIZE succeeded!
+
+=== NVMAP GET_AVAILABLE_HEAPS ===
+  Heap bitmask:     0x0000000010000004
+  Available heaps:  CARVEOUT_FSI (1<<2), CARVEOUT_VPR (1<<28)
+  ✓ GET_AVAILABLE_HEAPS succeeded!
+
+=== NVMAP CREATE + ALLOC (4096 bytes) ===
+  Created handle:   2147487046 (0x80000d46)
+  Allocated with heap=IOVMM (0x40000000), alignment=4096
+  Got dmabuf fd:    5
+  ✓ NVMAP CREATE + ALLOC succeeded!
+
+=== ALLOC_AS (create address space) ===
+  AS fd:            6
+  VA range:         0x000000200000 - 0x00ffffe00000
+  ✓ ALLOC_AS succeeded!
+
+=== MAP_BUFFER_EX (map 4096 bytes into GPU VA) ===
+  GPU VA:           0x00ffffa00000
+  ✓ MAP_BUFFER_EX succeeded!
+
+============================================================
+FULL CHANNEL + COMPUTE SETUP
+============================================================
+
+=== OPEN_TSG ===
+  TSG fd:           7
+
+=== CREATE_SUBCONTEXT ===
+  VEID:             1
+
+=== OPEN_CHANNEL ===
+  Channel fd:       8
+
+=== AS BIND_CHANNEL ===
+  Bound channel 8 to AS 6
+
+=== BIND_CHANNEL_EX ===
+  Bound channel 8 to TSG 7
+
+=== CHANNEL WDT (disable) ===
+  Watchdog disabled
+
+=== Allocating GPFIFO + userd buffers ===
+  GPFIFO buffer:    handle=2147487047, dmabuf_fd=9, size=8192
+  userd buffer:     handle=2147487048, dmabuf_fd=10, size=4096
+
+=== SETUP_BIND (GPFIFO + userd + usermode submit) ===
+  Work submit token: 511
+  GPFIFO GPU VA:     0x000000000000
+  USERD GPU VA:      0x000000000000
+  Usermode MMIO VA:  0x000000000000
+
+=== GET_USER_SYNCPOINT ===
+  Syncpoint ID:     4292935680
+  Syncpoint value:  255
+  GPU VA:           0x6d6000000011
+
+=== ALLOC_OBJ_CTX (compute class 0xc7c0) ===
+  Compute object:   class=0xc7c0, obj_id=0x0000000000000000
+  ✓ COMPUTE CLASS ALLOCATED SUCCESSFULLY!
+
+  ✓ FULL CHANNEL + COMPUTE SETUP succeeded!
+
+============================================================
+Results: 7/7 tests passed
+ALL TESTS PASSED!
+
+We have proven:
+  1. GPU characteristics readable (arch, compute_class, flags)
+  2. Memory allocation works (nvmap IOVMM)
+  3. GPU VA mapping works (MAP_BUFFER_EX)
+  4. Channel + TSG + compute class setup works
+  5. Usermode submit is available
+
+NEXT: Build TegraIface for tinygrad!
+============================================================
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  grep -n "nvgpu_channel_setup_usermode" /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/fifo/channel.c
+1401:static int nvgpu_channel_setup_usermode(struct nvgpu_channel *c,
+1596:           err = nvgpu_channel_setup_usermode(c, args);
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  find /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu -name "*.c" | xargs grep -l "alloc_usermode_buffers" 2>/dev/null
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/fifo/channel.c
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  cd /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources && tar tf Linux_for_Tegra/source/kernel_oot_modules_src.tbz2 | grep "nvgpu.*os/linux" | grep -i "channel\|usermode" | head -10
+nvgpu/drivers/gpu/nvgpu/os/linux/channel.h
+nvgpu/drivers/gpu/nvgpu/os/linux/module_usermode.h
+nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.h
+nvgpu/drivers/gpu/nvgpu/os/linux/io_usermode.c
+nvgpu/drivers/gpu/nvgpu/os/linux/ioctl_channel.c
+nvgpu/drivers/gpu/nvgpu/os/linux/module_usermode.c
+nvgpu/drivers/gpu/nvgpu/os/linux/linux-channel.c
+
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$  tar xf Linux_for_Tegra/source/kernel_oot_modules_src.tbz2 nvgpu/drivers/gpu/nvgpu/os/linux/linux-channel.c 2>/dev/null && grep -n "alloc_usermode_buffers\|gpfifo_gpu_va\|userd_gpu_va\|usermode_mmio" nvgpu/drivers/gpu/nvgpu/os/linux/linux-channel.c | head -20
+505:static int nvgpu_channel_alloc_usermode_buffers(struct nvgpu_channel *c,
+564:    args->gpfifo_gpu_va = c->gpfifo_va;
+565:    args->userd_gpu_va = c->userd_va;
+566:    args->usermode_mmio_gpu_va = c->vm->gpummio_va;
+614:    g->os_channel.alloc_usermode_buffers =
+615:            nvgpu_channel_alloc_usermode_buffers;
+
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$  grep -n "get_user_syncpoint\|user_syncpoint" /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu.h | head -15
+1288:struct nvgpu_get_user_syncpoint_args {
+1340:   _IOR(NVGPU_IOCTL_MAGIC, 126, struct nvgpu_get_user_syncpoint_args)
+
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$ [agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$  grep -n "get_user_syncpoint\|user_syncpoint" /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/include/uapi/linux/nvgpu.h | head -15
+bash: [agent@nixos:~/jetpack-nixos/examples/tinygrad/l4t-sources]$: No such file or directory
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$ 1288:struct nvgpu_get_user_syncpoint_args {
+bash: 1288:struct: command not found
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$ 1340:   _IOR(NVGPU_IOCTL_MAGIC, 126, struct nvgpu_get_user_syncpoint_args)
+bash: syntax error near unexpected token `('
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$ ^C
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  grep -n "gpfifo_va\|userd_va\|gpummio_va\|setup_mmio_gpu_vas" /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/linux-channel.c | head -20
+556:            err = nvgpu_channel_setup_mmio_gpu_vas(g, c, gpfifo_size);
+564:    args->gpfifo_gpu_va = c->gpfifo_va;
+565:    args->userd_gpu_va = c->userd_va;
+566:    args->usermode_mmio_gpu_va = c->vm->gpummio_va;
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$  find /home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu -name "*.c" -o -name "*.h" | xargs grep -rn "nvgpu_channel_setup_mmio_gpu_vas\|nvgpu_channel_free_mmio_gpu_vas" 2>/dev/null | head -10
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/gmmu/page_table.c:204:int nvgpu_channel_setup_mmio_gpu_vas(struct gk20a *g,
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/common/mm/gmmu/page_table.c:283:void nvgpu_channel_free_mmio_gpu_vas(struct gk20a *g,
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/linux-channel.c:485:           nvgpu_channel_free_mmio_gpu_vas(g, c);
+/home/agent/jetpack-nixos/examples/tinygrad/l4t-sources/nvgpu/drivers/gpu/nvgpu/os/linux/linux-channel.c:556:           err = nvgpu_channel_setup_mmio_gpu_vas(g, c, gpfifo_size);
+
+[agent@nixos:~/jetpack-nixos/examples/tinygrad]$ 

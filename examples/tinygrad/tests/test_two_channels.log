@@ -1,0 +1,68 @@
+[   0.000] === Log started at 2026-02-10T21:56:00.013914 ===
+[   0.002] Step 1: Open device nodes
+[   0.003]   nvmap_fd=4, ctrl_fd=5
+[   0.004] Step 2: GET_CHARACTERISTICS
+[   0.103]   arch=0x0170 compute=0xc7c0 gpfifo=0xc76f dma=0xc7b5
+[   0.104]   sm=0x0807 va_bits=40
+[   0.106] Step 3: ALLOC_AS
+[   0.107]   as_fd=6
+[   0.108] Step 4: OPEN_TSG
+[   0.109]   tsg_fd=7
+[   0.110] Step 5: CREATE_SUBCONTEXT
+[   0.111]   veid=1
+[   0.112] Step 6: Create COMPUTE channel (entries=1024)
+[   0.113]   [compute] Alloc gpfifo buffer: 8192 bytes (1024 entries)
+[   0.114]   [compute] gpfifo: handle=2147483669, dmabuf=8
+[   0.115]   [compute] Alloc userd buffer: 4096 bytes
+[   0.116]   [compute] userd: handle=2147483670, dmabuf=9
+[   0.117]   [compute] OPEN_CHANNEL...
+[   0.118]   [compute] ch_fd=10
+[   0.120]   [compute] AS_BIND...
+[   0.122]   [compute] TSG_BIND (veid=1)...
+[   0.123]   [compute] WDT disable...
+[   0.125]   [compute] SETUP_BIND (entries=1024)...
+[   0.127]   [compute] token=511, gpfifo_gpu_va=0x000000000000, userd_gpu_va=0x000000000000
+[   0.128] Step 7: ALLOC_OBJ_CTX compute class 0xc7c0
+[   0.130]   >>> ABOUT TO CALL ioctl on ch_fd=10
+[   1.142]   PASSED! obj_id=0x0000000000000000
+[   1.143] Step 8: Create DMA channel (entries=1024)
+[   1.144]   [dma] Alloc gpfifo buffer: 8192 bytes (1024 entries)
+[   1.145]   [dma] gpfifo: handle=2147483671, dmabuf=11
+[   1.146]   [dma] Alloc userd buffer: 4096 bytes
+[   1.147]   [dma] userd: handle=2147483672, dmabuf=12
+[   1.148]   [dma] OPEN_CHANNEL...
+[   1.149]   [dma] ch_fd=13
+[   1.150]   [dma] AS_BIND...
+[   1.151]   [dma] TSG_BIND (veid=1)...
+[   1.152]   [dma] WDT disable...
+[   1.153]   [dma] SETUP_BIND (entries=1024)...
+[   1.154]   [dma] token=510, gpfifo_gpu_va=0x000000000000, userd_gpu_va=0x000000000000
+[   1.155] Step 9: ALLOC_OBJ_CTX DMA class 0xc7b5
+[   1.156]   >>> ABOUT TO CALL ioctl on ch_fd=13
+[   1.157]   PASSED! obj_id=0x0000000000000000
+[   1.158] Step 10: mmap ctrl fd for doorbell
+[   1.159]   doorbell_base=0xfffff7fee000
+[   1.160] Step 11: mmap compute channel buffers
+[   1.161]   gpfifo_cpu=0xfffff7fec000, userd_cpu=0xfffff7feb000
+[   1.162]   GPGet=0x0, GPPut=0x0
+[   1.163] Step 12: mmap DMA channel buffers
+[   1.164]   gpfifo_cpu=0xfffff7fe9000, userd_cpu=0xfffff7fe8000
+[   1.165] 
+[   1.166] ============================================================
+[   1.167] ALL STEPS PASSED!
+[   1.168] ============================================================
+[   1.169] 
+[   1.169] Summary:
+[   1.170]   Compute channel: ch_fd=10, token=511
+[   1.171]     gpfifo_gpu_va=0x000000000000
+[   1.172]     userd_gpu_va=0x000000000000
+[   1.173]   DMA channel: ch_fd=13, token=510
+[   1.174]     gpfifo_gpu_va=0x000000000000
+[   1.175]     userd_gpu_va=0x000000000000
+[   1.176] 
+[   1.176] Kernel findings validated:
+[   1.177]   ✓ gpfifo_dmabuf_offset MUST be 0
+[   1.178]   ✓ userd_dmabuf_offset MUST be 0
+[   1.179]   ✓ Each channel needs separate gpfifo+userd dmabufs
+[   1.180]   ✓ gpfifo dmabuf sized to entries*8=8192 bytes (NOT 3MB)
+[   1.181]   ✓ Two channels in same TSG with ALLOC_OBJ_CTX: OK
