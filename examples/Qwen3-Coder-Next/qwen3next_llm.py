@@ -619,6 +619,155 @@ class Qwen3NextTransformer:
       start_pos = len(tokens) - 1
       yield next_id
 
+  # ── Radix KV-cache prefix reuse (SGLang-style) ────────────────────────────
+
+  def capture_model_snapshot(self, prefix_len: int) -> "radix_kv_cache.ModelSnapshot":
+    """Snapshot all attention KV caches and DeltaNet recurrent states up to
+    *prefix_len* tokens.  Used internally by generate_with_prefix_cache() to
+    populate the RadixPrefixCache after each agent's prefill.
+
+    Memory: one snapshot for an n-token prefix costs roughly
+      n × n_kv_heads × head_dim × 2 (K+V) × 2 bytes (fp16) × n_attn_blocks
+    For Qwen3-Coder-Next at 2 k tokens this is typically < 100 MB.
+    """
+    import radix_kv_cache as _rk
+    attn_kv: dict[int, Tensor] = {}
+    for i, blk in enumerate(self.attn_blocks):
+      if hasattr(blk, "cache_kv"):
+        # Clone just the prefix slice — avoids holding stale padding in memory
+        kv_slice = blk.cache_kv[:, :, :, :prefix_len, :].contiguous()
+        kv_slice.realize()
+        attn_kv[i] = kv_slice
+
+    delta_states_snap: list[tuple[Tensor, Tensor]] = []
+    if self._delta_states is not None:
+      for ds, cs in self._delta_states:
+        delta_states_snap.append((ds.contiguous().realize(), cs.contiguous().realize()))
+
+    return _rk.ModelSnapshot(
+      prefix_len=prefix_len,
+      attn_kv=attn_kv,
+      delta_states=delta_states_snap,
+    )
+
+  def restore_model_snapshot(self, snap: "radix_kv_cache.ModelSnapshot") -> None:
+    """Restore the model to the state captured by *snap*.
+
+    After this call the attention blocks have their KV caches pre-filled for
+    positions 0..snap.prefix_len-1 and the DeltaNet blocks have their
+    recurrent state set to the snapshotted values.  The caller must then run
+    a forward pass starting at start_pos=snap.prefix_len to process the
+    private suffix.
+
+    Positions beyond snap.prefix_len in cache_kv are stale but harmless:
+    _attention() only reads cache_kv[0, :, :, :start_pos+T, :], so stale
+    data beyond the new watermark is never accessed.
+    """
+    pl = snap.prefix_len
+    for i, blk in enumerate(self.attn_blocks):
+      if i not in snap.attn_kv:
+        continue
+      kv_src = snap.attn_kv[i]  # (2, B, H_kv, pl, D)
+      if not hasattr(blk, "cache_kv"):
+        # cache_kv is normally created lazily inside _attention(); create it
+        # here so we can populate it before the first forward pass.
+        B = kv_src.shape[1]
+        blk.cache_kv = Tensor.zeros(
+          2, B, blk.n_kv_heads, blk.max_context, blk.head_dim,
+          dtype=kv_src.dtype, device=kv_src.device,
+        ).contiguous().realize()
+      blk.cache_kv[:, :, :, :pl, :].assign(kv_src).realize()
+
+    if snap.delta_states:
+      # Restore recurrent states; index order matches self.delta_blocks
+      self._delta_states = list(snap.delta_states)
+    else:
+      self._init_states()
+
+  def generate_with_prefix_cache(
+    self,
+    tokens: list[int],
+    prefix_cache: "radix_kv_cache.RadixPrefixCache",
+    start_pos: int = 0,
+  ):
+    """Generate tokens with SGLang-style radix tree KV-cache prefix reuse.
+
+    Algorithm
+    ---------
+    1. **Prefix lookup** — walk the radix tree to find the longest cached
+       prefix of *tokens*.
+    2. **State restore** — if a matching snapshot exists and covers more
+       tokens than *start_pos*, restore the model state from the snapshot
+       (attention KV caches + DeltaNet recurrent states).
+    3. **Tail prefill** — run the transformer forward pass only for the
+       uncached suffix tokens[effective_start:].
+    4. **Snapshot & insert** — capture the full model state at the end of
+       the prefill and insert it into the radix tree so future agents that
+       share this prefix skip the work.
+    5. **Autoregressive decode** — yield new token IDs one at a time,
+       identical to generate().
+
+    Multi-agent savings
+    -------------------
+    For k agents with a shared m-token prefix and n-token private suffix
+    each:
+      • Without prefix cache: k × O((m+n)²) attention cost.
+      • With prefix cache:    O(m²) prefill once + k × O(n²) private fills.
+
+    Parameters
+    ----------
+    tokens       : Full input token list (prefix + private suffix).  The list
+                   is mutated in-place as new tokens are appended.
+    prefix_cache : A RadixPrefixCache instance shared across all agents.
+    start_pos    : Override the effective start position (rarely needed;
+                   defaults to 0 for fresh generation).
+
+    Yields
+    ------
+    int — generated token IDs, one per iteration (identical to generate()).
+    """
+    import radix_kv_cache as _rk
+    assert isinstance(prefix_cache, _rk.RadixPrefixCache), \
+        "prefix_cache must be a RadixPrefixCache instance"
+
+    # ── Step 1: radix tree lookup ─────────────────────────────────────────
+    matched_len, snapshot = prefix_cache.match_prefix(tokens)
+
+    if matched_len > start_pos and snapshot is not None:
+      # ── Step 2: restore cached model state ─────────────────────────────
+      self.restore_model_snapshot(snapshot)
+      effective_start = matched_len
+    else:
+      # Cold start — fresh recurrent state, full prefill
+      self._init_states()
+      effective_start = start_pos
+
+    # ── Step 3: prefill the uncached suffix ──────────────────────────────
+    if effective_start < len(tokens):
+      t = Tensor([tokens[effective_start:]], dtype="int32")
+      # This single batched forward pass fills cache_kv for all suffix tokens
+      # and advances delta states; the return value is discarded here because
+      # the autoregressive loop regenerates from the last token.
+      self(t, effective_start)
+
+    # ── Step 4: snapshot → insert into radix tree ────────────────────────
+    prefill_end = len(tokens)
+    if matched_len < prefill_end:
+      snap = self.capture_model_snapshot(prefill_end)
+      prefix_cache.insert(tokens[:prefill_end], snap)
+
+    # ── Step 5: autoregressive decode ────────────────────────────────────
+    # Seed the loop with the last input token so the first generated token
+    # is produced from the correct key-value context.
+    start_pos = prefill_end
+    t = Tensor([[tokens[start_pos - 1]]], dtype="int32")
+    while len(tokens) < self.max_context:
+      t = self(t, start_pos - 1)
+      next_id = int(t.item())
+      tokens.append(next_id)
+      start_pos = len(tokens)
+      yield next_id
+
 
 # ─── Per-Tensor GGUF Loader (avoids Tegra nvmap single-allocation limit) ─────
 def _ggml_raw_bytes(n: int, ggml_type: int) -> int:
@@ -896,6 +1045,15 @@ if __name__ == "__main__":
   parser.add_argument("--benchmark", nargs='?', type=int, const=20, metavar="COUNT", help="Benchmark tok/s")
   parser.add_argument("--prompt", type=str, default=None, help="Run one-shot prompt and exit")
   parser.add_argument("--max_new_tokens", type=int, default=256, help="Max new tokens for --prompt/chat turns")
+  parser.add_argument("--multi-agent", nargs='+', metavar="SUFFIX",
+                      help="Demo: run N agents sharing a system prompt via radix KV cache. "
+                           "Pass private suffixes as positional args, e.g. "
+                           "--multi-agent 'What is 2+2?' 'Write a haiku about GPUs'")
+  parser.add_argument("--shared-prefix", type=str, default=None,
+                      help="System prompt shared across --multi-agent runs "
+                           "(defaults to a generic assistant instruction)")
+  parser.add_argument("--kv-budget", type=int, default=32_768,
+                      help="Radix KV cache token budget (default 32768)")
   args = parser.parse_args()
 
   gguf_path = pathlib.Path(args.gguf)
@@ -931,6 +1089,64 @@ if __name__ == "__main__":
     ids += tok.role("user") + tok.encode(args.prompt) + tok.end_turn(eos_id) + tok.role("assistant")
     out, prefill_tps, gen_tps = _decode_with_stats(model, tok, eos_id, ids, max(len(ids)-1, 0), args.max_new_tokens, stream_output=True)
     print(f"\n[prompt] prefill: {prefill_tps:.1f} tok/s, gen: {gen_tps:.1f} tok/s, out: {len(out)} tok")
+    sys.exit(0)
+
+  if args.multi_agent is not None:
+    # ── Multi-agent radix KV-cache demo ──────────────────────────────────────
+    # All agents share one system prompt (the "shared prefix").  The radix tree
+    # ensures its KV cache is computed only once.
+    from radix_kv_cache import RadixPrefixCache
+
+    default_system = (
+      "You are a helpful, precise coding assistant running on a Jetson Orin AGX "
+      "via TinyGrad.  Answer concisely and correctly."
+    )
+    system_text = args.shared_prefix if args.shared_prefix else default_system
+
+    # Build the shared prefix token sequence (system turn only)
+    shared_ids: list[int] = [bos_id] if bos_id is not None else []
+    shared_ids += (
+      tok.role("system")
+      + tok.encode(system_text)
+      + tok.end_turn(eos_id)
+    )
+    shared_len = len(shared_ids)
+    print(f"Shared prefix: {shared_len} tokens")
+
+    prefix_cache = RadixPrefixCache(max_token_budget=args.kv_budget)
+
+    for agent_idx, suffix_text in enumerate(args.multi_agent):
+      print(f"\n── Agent {agent_idx + 1} ────────────────────────────────────────")
+      print(f"  Query: {suffix_text!r}")
+      print("  Response: ", end="", flush=True)
+
+      # Each agent gets a fresh copy of shared_ids + its private turn
+      ids: list[int] = list(shared_ids)
+      ids += tok.role("user") + tok.encode(suffix_text) + tok.end_turn(eos_id) + tok.role("assistant")
+
+      t0 = time.perf_counter()
+      out: list[int] = []
+      first_tok_t: float | None = None
+
+      for next_id in model.generate_with_prefix_cache(ids, prefix_cache):
+        if first_tok_t is None:
+          first_tok_t = time.perf_counter()
+        if next_id == eos_id or len(out) >= args.max_new_tokens:
+          break
+        out.append(next_id)
+        sys.stdout.write(tok.decode([next_id]))
+        sys.stdout.flush()
+
+      t1 = time.perf_counter()
+      prefill_s = max(1e-9, (first_tok_t or t1) - t0)
+      gen_s     = max(1e-9, t1 - (first_tok_t or t1))
+      uncached  = max(0, len(ids) - shared_len)
+      print(
+        f"\n  Cache: {prefix_cache.total_cached_tokens()} tok cached | "
+        f"prefill: {uncached / prefill_s:.0f} tok/s (only {uncached} uncached tok) | "
+        f"gen: {len(out) / gen_s:.0f} tok/s"
+      )
+
     sys.exit(0)
 
   ids: list[int] = [bos_id] if bos_id is not None else []
