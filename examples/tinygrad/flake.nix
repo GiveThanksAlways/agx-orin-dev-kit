@@ -113,34 +113,51 @@
           ];
 
           shellHook = ''
-            # Local-source workflow: tinygrad is imported from ./tinygrad checkout.
-            # This intentionally avoids a pinned nixpkgs tinygrad package so your
-            # local branch changes are always what Python imports.
-            if [ ! -d "$PWD/tinygrad/tinygrad" ]; then
+            # Local-source workflow: tinygrad is imported from the repo's submodule at
+            # external/tinygrad/.  The submodule used to live at examples/tinygrad/tinygrad/
+            # and was moved; both locations are checked so the shell works regardless of
+            # where you run `nix develop` from.
+            #
+            # Expected usage:   cd examples/tinygrad && nix develop
+            # Also works:       nix develop examples/tinygrad# (from repo root)
+
+            if [ -d "$PWD/external/tinygrad/tinygrad" ]; then
+              # Running nix develop from the repo root
+              TINYGRAD_PATH="$PWD/external/tinygrad"
+            elif [ -d "$(realpath "$PWD/../../external/tinygrad" 2>/dev/null)/tinygrad" ]; then
+              # Running nix develop from examples/tinygrad/ (expected)
+              TINYGRAD_PATH="$(realpath "$PWD/../../external/tinygrad")"
+            elif [ -d "$PWD/tinygrad/tinygrad" ]; then
+              # Legacy: submodule still at examples/tinygrad/tinygrad/
+              TINYGRAD_PATH="$PWD/tinygrad"
+            else
               echo ""
-              echo "ERROR: local tinygrad checkout not found at: $PWD/tinygrad"
-              echo "Run this shell from examples/tinygrad and ensure submodules are present:"
+              echo "ERROR: cannot find tinygrad submodule."
+              echo "From the repo root, run:"
               echo "  git submodule update --init --recursive"
               echo ""
               return 1
             fi
 
-            export PYTHONPATH="$PWD/tinygrad:$PYTHONPATH"
-            
+            export PYTHONPATH="$TINYGRAD_PATH:$PYTHONPATH"
+
             echo ""
             echo "=== tinygrad dev shell (Orin AGX / CUDA 12.6, local source mode) ==="
-            echo "Using tinygrad from: $PWD/tinygrad"
+            echo "Using tinygrad from: $TINYGRAD_PATH"
             echo ""
             echo "Quick test (CPU):"
             echo "  python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'"
             echo ""
-            echo "Quick test (CUDA):"
-            echo "  CUDA=1 python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'"
+            echo "Quick test (NV backend — Jetson Orin):"
+            echo "  NV=1 python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'"
             echo ""
-            echo "LLM examples:"
-            echo "  cd tinygrad && CUDA=1 python3 examples/gpt2.py --count 20"
+            echo "GPT-2 (auto-downloads weights):"
+            echo "  NV=1 python3 \$TINYGRAD_PATH/examples/gpt2.py --count 20"
             echo ""
-            echo "PYTHONPATH includes $PWD/tinygrad for tinygrad + extra modules."
+            echo "Radix KV-cache test (GPT-2 + multi-agent prefix reuse):"
+            echo "  NV=1 python3 test_radix_gpt2.py"
+            echo ""
+            echo "PYTHONPATH includes \$TINYGRAD_PATH for tinygrad + extra modules."
             echo ""
           '';
         };

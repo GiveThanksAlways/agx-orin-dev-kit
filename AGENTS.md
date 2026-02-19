@@ -2,6 +2,10 @@
 
 We are working with an Nvidia Jetson dev kit Orin AGX 64GB
 
+## TinyGrad flake.nix
+
+- this is our current working flake.nix for tinygrad to work on jetpack-nixos
+- `examples/tinygrad/flake.nix`
 
 ## More info
 
