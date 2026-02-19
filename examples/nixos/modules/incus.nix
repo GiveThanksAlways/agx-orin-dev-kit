@@ -113,8 +113,6 @@ in
 
     # Add requested users to incus-admin for non-root access.
     # Requires a reboot to take effect after first switch.
-    users.users = lib.genAttrs cfg.users (_: {
-      extraGroups = [ "incus-admin" ];
-    });
+    users.groups.incus-admin.members = cfg.users;
   };
 }
