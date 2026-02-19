@@ -87,8 +87,17 @@
           # See: grep -rn 'c.DLL' tinygrad/runtime/ for the full list of libraries.
           #
           # CUDA backend libs (required):
-          CUDA_PATH = "${jetpack.l4t-cuda}/lib/libcuda.so.1";
-          CUDA_INCLUDE_PATH = "${pkgs.lib.getDev cuda.cuda_cudart}/include";
+          #
+          # IMPORTANT: tinygrad's NVRTCCompiler reads CUDA_PATH and appends /include to it
+          # (tinygrad/runtime/support/compiler_cuda.py line ~47).
+          # So CUDA_PATH must be the *root* of a cuda installation whose include/ subdir
+          # contains cuda_fp16.h — i.e. the cuda_cudart dev output, NOT the .so path.
+          CUDA_PATH = "${pkgs.lib.getDev cuda.cuda_cudart}";
+          # L4T_CUDA_PATH holds the driver .so (libcuda.so.1); tinygrad reads this via
+          # the CUDA_PATH DLL lookup in runtime/support/c.py — but only for the driver
+          # library, which it finds via LD_LIBRARY_PATH anyway. Keeping it separate
+          # avoids clobbering the include-path CUDA_PATH above.
+          L4T_CUDA_PATH = "${jetpack.l4t-cuda}/lib/libcuda.so.1";
           NVRTC_PATH = "${pkgs.lib.getLib cuda.cuda_nvrtc}/lib/libnvrtc.so";
           NVJITLINK_PATH = "${pkgs.lib.getLib cuda.libnvjitlink}/lib/libnvJitLink.so";
           # System libs (tinygrad loads libc via ctypes for io_uring/mmap/etc.):
