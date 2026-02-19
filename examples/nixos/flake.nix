@@ -116,6 +116,26 @@
         ];
       };
 
+      # -- Incus VM/container hypervisor --
+      # Enables Incus with a NAT bridge and dir-backed storage pool.
+      # After switching + rebooting, launch arm64 VMs with e.g.:
+      #
+      #   incus launch images:ubuntu/noble/cloud ubuntu-vm --vm -c security.secureboot=false
+      #   incus launch images:alpine/3.23/cloud  alpine-vm --vm -c security.secureboot=false
+      #   incus launch images:fedora/43/cloud    fedora-vm --vm -c security.secureboot=false
+      #
+      nixosConfigurations.nixos-incus = nixpkgs.lib.nixosSystem {
+        modules = baseModules ++ [
+          ./modules/incus.nix
+          ({ ... }: {
+            services.orin-incus = {
+              enable = true;
+              users = [ "agent" "spencer" ];
+            };
+          })
+        ];
+      };
+
       # -- Docker benchmarking (Docker + NVIDIA Container Toolkit) --
       # Enables Docker with GPU passthrough for running vLLM, MLC LLM,
       # and other containerized inference engines.
