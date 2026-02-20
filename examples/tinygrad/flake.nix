@@ -56,6 +56,18 @@
           doCheck = false;
         };
 
+        # Combined CUDA root directory that tinygrad's CUDA_PATH can point to.
+        # compiler_cuda.py does: -I{CUDA_PATH}/include  → needs include/ subdir
+        # DLL.findlib searches CUDA_PATH directory for libcuda.so*  → needs libcuda.so at top level
+        # This derivation creates a flat layout with both.
+        cuda-root = pkgs.runCommand "tinygrad-cuda-root" {} ''
+          mkdir -p $out
+          ln -s ${pkgs.lib.getDev cuda.cuda_cudart}/include $out/include
+          ln -s ${jetpack.l4t-cuda}/lib/libcuda.so $out/libcuda.so
+          ln -s ${jetpack.l4t-cuda}/lib/libcuda.so.1 $out/libcuda.so.1
+          ln -s ${jetpack.l4t-cuda}/lib/libcuda.so.1.1 $out/libcuda.so.1.1
+        '';
+
         pythonEnv = pkgs.python3.withPackages (ps: [
           torch-bin
           ps.numpy
@@ -90,14 +102,9 @@
           #
           # IMPORTANT: tinygrad's NVRTCCompiler reads CUDA_PATH and appends /include to it
           # (tinygrad/runtime/support/compiler_cuda.py line ~47).
-          # So CUDA_PATH must be the *root* of a cuda installation whose include/ subdir
-          # contains cuda_fp16.h — i.e. the cuda_cudart dev output, NOT the .so path.
-          CUDA_PATH = "${pkgs.lib.getDev cuda.cuda_cudart}";
-          # L4T_CUDA_PATH holds the driver .so (libcuda.so.1); tinygrad reads this via
-          # the CUDA_PATH DLL lookup in runtime/support/c.py — but only for the driver
-          # library, which it finds via LD_LIBRARY_PATH anyway. Keeping it separate
-          # avoids clobbering the include-path CUDA_PATH above.
-          L4T_CUDA_PATH = "${jetpack.l4t-cuda}/lib/libcuda.so.1";
+          # tinygrad's DLL.findlib also searches CUDA_PATH directory for libcuda.so*.
+          # We use a merged derivation that has both include/ and lib/libcuda.so.
+          CUDA_PATH = "${cuda-root}";
           NVRTC_PATH = "${pkgs.lib.getLib cuda.cuda_nvrtc}/lib/libnvrtc.so";
           NVJITLINK_PATH = "${pkgs.lib.getLib cuda.libnvjitlink}/lib/libnvJitLink.so";
           # System libs (tinygrad loads libc via ctypes for io_uring/mmap/etc.):
@@ -122,6 +129,12 @@
           ];
 
           shellHook = ''
+            # Force clang as the C/C++ compiler — tinygrad's CPU backend uses
+            # --target=aarch64-none-unknown-elf which is a clang-only flag.
+            # mkShell's stdenv sets CC=gcc, so we override here.
+            export CC="${pkgs.clang}/bin/clang"
+            export CXX="${pkgs.clang}/bin/clang++"
+
             # Local-source workflow: tinygrad is imported from the repo's submodule at
             # external/tinygrad/.  The submodule used to live at examples/tinygrad/tinygrad/
             # and was moved; both locations are checked so the shell works regardless of
