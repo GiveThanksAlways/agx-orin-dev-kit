@@ -11,9 +11,9 @@
 #include <stddef.h>
 #include <arm_neon.h>
 
-/* Up to 5 layers (4 hidden + 1 output) */
-#define NEON_MLP_MAX_LAYERS 5
-#define NEON_MLP_MAX_DIM    512
+/* Up to 8 layers (7 hidden + 1 output) */
+#define NEON_MLP_MAX_LAYERS 8
+#define NEON_MLP_MAX_DIM    2048
 
 typedef struct {
     int n_layers;                            /* number of weight matrices */

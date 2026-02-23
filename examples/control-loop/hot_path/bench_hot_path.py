@@ -2,10 +2,14 @@
 """
 bench_hot_path.py — Benchmark: Python NV=1 vs C GPU hot path vs C NEON MLP.
 
-Tests 3 MLP sizes to show the crossover point between GPU and CPU inference:
-  Small:  12→64→64→4     (~5K params)   — typical PID-replacement
-  Medium: 12→128→128→4   (~18K params)  — richer learned controller
-  Large:  12→256→256→256→4 (~135K params) — full policy network
+Tests 7 MLP sizes to find the GPU/NEON crossover and sweet spots:
+  Tiny:    12→64→64→4         (~5K params)    — PID-replacement, rate gyro filter
+  Small:   12→128→128→4       (~18K params)   — learned hover controller, sensor fusion
+  Medium:  12→256→256→256→4   (~135K params)  — full attitude policy, SLAM feature encoder
+  Large:   12→512→512→4       (~268K params)  — visual-inertial nav, end-to-end landing
+  XLarge:  12→512→512→512→4   (~530K params)  — GPU crossover zone
+  XXLarge: 12→1024→1024→4     (~1.1M params)  — GPU sweet spot: path planner, obstacle avoidance
+  Huge:    12→1024→1024→1024→4 (~2.1M params) — large policy, multi-agent coordination
 
 For each size, runs:
   1. Python NV=1  — tinygrad @TinyJit with direct memmove (Approach C from bench_nv_wins.py)
@@ -41,10 +45,16 @@ WARMUP  = 30
 N_ITERS = 10000
 
 # MLP configs: (name, hidden_dims, description)
+# Spans from tiny PID-replacement up through large policy networks to find
+# the GPU sweet spot (where C GPU hot path beats NEON) and upper bound.
 MLP_CONFIGS = [
-    ("small",  [64, 64],        "12→64→64→4 (~5K params)"),
-    ("medium", [128, 128],      "12→128→128→4 (~18K params)"),
-    ("large",  [256, 256, 256], "12→256→256→256→4 (~135K params)"),
+    ("tiny",    [64, 64],              "12→64→64→4 (~5K params)"),
+    ("small",   [128, 128],            "12→128→128→4 (~18K params)"),
+    ("medium",  [256, 256, 256],       "12→256→256→256→4 (~135K params)"),
+    ("large",   [512, 512],            "12→512→512→4 (~268K params)"),
+    ("xlarge",  [512, 512, 512],       "12→512→512→512→4 (~530K params)"),
+    ("xxlarge", [1024, 1024],          "12→1024→1024→4 (~1.1M params)"),
+    ("huge",    [1024, 1024, 1024],    "12→1024→1024→1024→4 (~2.1M params)"),
 ]
 
 
@@ -341,7 +351,8 @@ def bench_c_neon(layers_data, dims, sensor_pool, ref_output):
     lib = ctypes.CDLL(NEON_MLP_SO)
 
     # Define neon_mlp_t as opaque blob (we'll allocate it large enough)
-    MLP_STRUCT_SIZE = 8192  # generous — actual struct is much smaller
+    # With MAX_DIM=2048: scratch_a/b = 2*2048*2 = 8192 bytes, plus pointers/dims
+    MLP_STRUCT_SIZE = 65536  # generous for MAX_DIM=2048
 
     lib.neon_mlp_init.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.POINTER(ctypes.c_int)]
     lib.neon_mlp_init.restype = ctypes.c_int
