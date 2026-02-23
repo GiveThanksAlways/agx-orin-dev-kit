@@ -19,7 +19,7 @@ LDFLAGS_SHARED = -shared
 
 .PHONY: all clean
 
-all: hot_path.so neon_mlp.so
+all: hot_path.so neon_mlp.so neon_mlp_f32.so
 
 hot_path.so: hot_path.c hot_path.h
 	$(CC) $(CFLAGS) $(LDFLAGS_SHARED) -o $@ hot_path.c
@@ -27,5 +27,8 @@ hot_path.so: hot_path.c hot_path.h
 neon_mlp.so: neon_mlp.c neon_mlp.h
 	$(CC) $(CFLAGS) $(LDFLAGS_SHARED) -o $@ neon_mlp.c
 
+neon_mlp_f32.so: neon_mlp_f32.c neon_mlp_f32.h
+	$(CC) $(CFLAGS) $(LDFLAGS_SHARED) -o $@ neon_mlp_f32.c
+
 clean:
-	rm -f hot_path.so neon_mlp.so
+	rm -f hot_path.so neon_mlp.so neon_mlp_f32.so
