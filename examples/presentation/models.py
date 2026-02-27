@@ -185,13 +185,12 @@ def build_tinygrad_cnn(conv_config, mlp_head_dims, seed=SEED):
             self.convs = conv_layers
             self.mlp = mlp_layers
         def __call__(self, x):
-            # x: (1, IN_DIM, SEQ_LEN)
+            # x: (1, IN_DIM, SEQ_LEN) → need 4D for conv2d
+            x = x.reshape(x.shape[0], x.shape[1], x.shape[2], 1)  # (N, C, L, 1)
             for w, b, stride in self.convs:
-                # Manual conv1d: weight (out_ch, in_ch, ks), input (batch, in_ch, seq)
-                x = x.conv2d(w.reshape(*w.shape, 1), b, stride=(stride, 1),
-                             padding=0).reshape(x.shape[0], w.shape[0], -1)
-            # Global average pool over time dimension
-            x = x.mean(axis=2)  # (1, out_ch)
+                x = x.conv2d(w.reshape(*w.shape, 1), b, stride=(stride, 1), padding=0)
+            # Flatten: (N, C, L, 1) → (N, C*L)
+            x = x.reshape(x.shape[0], -1)
             for i, layer in enumerate(self.mlp):
                 x = layer(x)
                 if i < len(self.mlp) - 1:
@@ -253,10 +252,10 @@ def build_tinygrad_hybrid(conv_config, mlp_head_dims, seed=SEED):
             self.mlp = mlp_layers
         def __call__(self, imu_window, current_state):
             # CNN on temporal window
-            x = imu_window
+            x = imu_window.reshape(imu_window.shape[0], imu_window.shape[1], imu_window.shape[2], 1)  # (N, C, L, 1)
             for w, b, stride in self.convs:
-                x = x.conv2d(w.reshape(*w.shape, 1), b, stride=(stride, 1),
-                             padding=0).reshape(x.shape[0], w.shape[0], -1)
+                x = x.conv2d(w.reshape(*w.shape, 1), b, stride=(stride, 1), padding=0)
+            x = x.reshape(x.shape[0], x.shape[1], x.shape[2])  # back to 3D
             x = x.mean(axis=2)  # (1, cnn_out_dim)
             # Concatenate with current state
             x = x.cat(current_state, dim=1)  # (1, cnn_out_dim + IN_DIM)

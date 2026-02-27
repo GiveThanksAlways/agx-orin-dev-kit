@@ -1,0 +1,23 @@
+# Build hot_path.so for C GPU graph replay benchmark
+#
+# Build from nix dev shell:
+#   cd examples/presentation && make -f Makefile.hotpath
+#
+# Reuses hot_path.c/h from ../control-loop/hot_path/
+
+CC ?= gcc
+CFLAGS = -O3 -march=armv8.2-a+fp16 -mtune=cortex-a78ae \
+         -Wall -Wextra -Wno-unused-parameter -fPIC
+LDFLAGS_SHARED = -shared
+
+HOT_PATH_SRC = ../control-loop/hot_path
+
+.PHONY: all clean
+
+all: hot_path.so
+
+hot_path.so: $(HOT_PATH_SRC)/hot_path.c $(HOT_PATH_SRC)/hot_path.h
+	$(CC) $(CFLAGS) $(LDFLAGS_SHARED) -I$(HOT_PATH_SRC) -o $@ $(HOT_PATH_SRC)/hot_path.c
+
+clean:
+	rm -f hot_path.so
