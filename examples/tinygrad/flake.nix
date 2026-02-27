@@ -13,7 +13,14 @@
         pkgs = import nixpkgs {
           inherit system;
           config.allowUnfree = true;
-          overlays = [ jetpack-nixos.overlays.default ];
+          overlays = [
+            jetpack-nixos.overlays.default
+            # jetpack-nixos defaults cudaPackages to CUDA 11.4 for broad compatibility.
+            # Override it to JetPack 6 / CUDA 12.6 so that nixpkgs packages like torch
+            # get built against the correct CUDA version for Orin AGX.
+            # See jetpack-nixos README: "Re-using jetpack-nixos's CUDA package set".
+            (final: _: { inherit (final.nvidia-jetpack6) cudaPackages; })
+          ];
         };
         jetpack = pkgs.nvidia-jetpack6;
         cuda = jetpack.cudaPackages;
