@@ -4,17 +4,20 @@
 Tests MLP, 1D-CNN, and Hybrid CNN+MLP architectures across three backends:
   1. tinygrad NV=1 (Python) — full JIT dispatch via Tegra ioctls
   2. C GPU Hot Path — replays tinygrad HCQGraphs from C, zero Python overhead
-  3. TensorRT FP16 — NVIDIA's optimized inference engine
+  3. TensorRT — NVIDIA's optimized inference engine
 
 Usage:
   cd examples/presentation && nix develop
-  NV=1 JITBEAM=2 python3 bench_models.py                  # All architectures
-  NV=1 JITBEAM=2 python3 bench_models.py --arch mlp        # MLP only
-  NV=1 JITBEAM=2 python3 bench_models.py --arch cnn        # CNN only
-  NV=1 JITBEAM=2 python3 bench_models.py --arch hybrid     # Hybrid only
-  NV=1 JITBEAM=2 python3 bench_models.py --skip-tensorrt   # tinygrad only
-  NV=1 JITBEAM=2 python3 bench_models.py --skip-hotpath    # skip C hot path
-  NV=1 JITBEAM=2 python3 bench_models.py --iters 5000      # Fewer iterations (faster)
+  NV=1 JITBEAM=2 python3 bench_models.py                            # All architectures (FP16, batch=1)
+  NV=1 JITBEAM=2 python3 bench_models.py --precision fp32            # FP32 head-to-head
+  NV=1 JITBEAM=2 python3 bench_models.py --precision tf32            # TF32 (tensor core FP32)
+  NV=1 JITBEAM=2 python3 bench_models.py --batch 1,8,16             # Multiple batch sizes
+  NV=1 JITBEAM=2 python3 bench_models.py --arch mlp                 # MLP only
+  NV=1 JITBEAM=2 python3 bench_models.py --arch cnn                 # CNN only
+  NV=1 JITBEAM=2 python3 bench_models.py --arch hybrid              # Hybrid only
+  NV=1 JITBEAM=2 python3 bench_models.py --skip-tensorrt            # tinygrad only
+  NV=1 JITBEAM=2 python3 bench_models.py --skip-hotpath             # skip C hot path
+  NV=1 JITBEAM=2 python3 bench_models.py --iters 5000               # Fewer iterations (faster)
 """
 import os, sys, argparse, time, json
 import numpy as np
@@ -105,69 +108,79 @@ def run_mlp_benchmarks(args):
     """Run MLP benchmarks across all sizes."""
     from bench_tinygrad import bench_nv_mlp
     results = []
+    use_fp16 = args.use_fp16
+    use_tf32 = args.use_tf32
+    prec_label = "TF32" if use_tf32 else ("FP16" if use_fp16 else "FP32")
 
-    print("\n" + "=" * 90)
-    print("MLP ARCHITECTURES — tinygrad NV=1 vs C Hot Path vs TensorRT")
-    print("  Input: (1, 12) — pos/vel/rpy/gyro state vector")
-    print("  Output: (1, 4) — thrust + angular rates")
-    print("  Real-world: learned controllers, sensor fusion, reactive policies")
-    print("=" * 90)
+    for batch_size in args.batch_sizes:
+        bs_label = f"batch={batch_size}"
+        print("\n" + "=" * 90)
+        print(f"MLP ARCHITECTURES ({prec_label}, {bs_label}) — tinygrad NV=1 vs C Hot Path vs TensorRT")
+        print(f"  Input: ({batch_size}, 12) — pos/vel/rpy/gyro state vector")
+        print(f"  Output: ({batch_size}, 4) — thrust + angular rates")
+        print("  Real-world: learned controllers, sensor fusion, reactive policies")
+        print("=" * 90)
 
-    for name, hidden_dims, desc, use_case in MLP_CONFIGS:
-        print(f"\n{'─' * 90}")
-        print(f"  {name}: {desc}")
-        print(f"  Use case: {use_case}")
-        print(f"{'─' * 90}")
+        for name, hidden_dims, desc, use_case in MLP_CONFIGS:
+            print(f"\n{'─' * 90}")
+            print(f"  {name}: {desc} [{bs_label}]")
+            print(f"  Use case: {use_case}")
+            print(f"{'─' * 90}")
 
-        # Export weights for TensorRT
-        weight_path = WEIGHTS_DIR / f"{name}.npz"
-        export_mlp_onnx(hidden_dims, str(weight_path))
+            # Export weights for TensorRT
+            prec_suffix = "tf32" if use_tf32 else ("fp16" if use_fp16 else "fp32")
+            weight_path = WEIGHTS_DIR / f"{name}_{prec_suffix}.npz"
+            export_mlp_onnx(hidden_dims, str(weight_path), use_fp16=use_fp16, batch_size=batch_size)
 
-        # tinygrad NV=1
-        print(f"\n  [tinygrad NV=1]")
-        nv_times, params, nv_result = bench_nv_mlp(
-            name, hidden_dims, warmup=args.warmup, n_iters=args.iters)
-        print_stats(f"NV=1 direct memmove ({params:,} params)", nv_times)
+            # tinygrad NV=1
+            print(f"\n  [tinygrad NV=1 {prec_label}]")
+            nv_times, params, nv_result = bench_nv_mlp(
+                name, hidden_dims, warmup=args.warmup, n_iters=args.iters,
+                use_fp16=use_fp16, batch_size=batch_size)
+            print_stats(f"NV=1 {prec_label} direct memmove ({params:,} params)", nv_times)
 
-        result_entry = {
-            "name": name, "arch": "mlp", "params": params,
-            "hidden_dims": hidden_dims, "desc": desc, "use_case": use_case,
-            "nv": stats(nv_times),
-        }
+            result_entry = {
+                "name": name, "arch": "mlp", "params": params,
+                "hidden_dims": hidden_dims, "desc": desc, "use_case": use_case,
+                "batch_size": batch_size,
+                "nv": stats(nv_times),
+            }
 
-        # C GPU Hot Path
-        hp_times = None
-        if not args.skip_hotpath:
-            print(f"\n  [C GPU Hot Path]")
-            try:
-                from bench_c_hot_path import bench_c_mlp
-                hp_times, _ = bench_c_mlp(
-                    name, hidden_dims, warmup=args.warmup, n_iters=args.iters)
-                if hp_times is not None:
-                    print_stats(f"C hot path ({params:,} params)", hp_times)
-                    result_entry["hotpath"] = stats(hp_times)
-            except Exception as e:
-                print(f"  C Hot Path FAILED: {e}")
-                result_entry["hotpath_error"] = str(e)
+            # C GPU Hot Path
+            hp_times = None
+            if not args.skip_hotpath:
+                print(f"\n  [C GPU Hot Path {prec_label}]")
+                try:
+                    from bench_c_hot_path import bench_c_mlp
+                    hp_times, _ = bench_c_mlp(
+                        name, hidden_dims, warmup=args.warmup, n_iters=args.iters,
+                        use_fp16=use_fp16, batch_size=batch_size)
+                    if hp_times is not None:
+                        print_stats(f"C hot path ({params:,} params)", hp_times)
+                        result_entry["hotpath"] = stats(hp_times)
+                except Exception as e:
+                    print(f"  C Hot Path FAILED: {e}")
+                    result_entry["hotpath_error"] = str(e)
 
-        # TensorRT
-        trt_times = None
-        if not args.skip_tensorrt:
-            print(f"\n  [TensorRT FP16]")
-            try:
-                from bench_tensorrt import bench_trt_mlp
-                trt_times, _ = bench_trt_mlp(
-                    name, hidden_dims, str(weight_path),
-                    warmup=args.warmup, n_iters=args.iters)
-                print_stats(f"TensorRT FP16 ({params:,} params)", trt_times)
-                result_entry["trt"] = stats(trt_times)
-            except Exception as e:
-                print(f"  TensorRT FAILED: {e}")
-                result_entry["trt_error"] = str(e)
+            # TensorRT
+            trt_times = None
+            if not args.skip_tensorrt:
+                print(f"\n  [TensorRT {prec_label}]")
+                try:
+                    from bench_tensorrt import bench_trt_mlp
+                    trt_times, _ = bench_trt_mlp(
+                        name, hidden_dims, str(weight_path),
+                        warmup=args.warmup, n_iters=args.iters,
+                        use_fp16=use_fp16, use_tf32=use_tf32, batch_size=batch_size)
+                    print_stats(f"TensorRT {prec_label} ({params:,} params)", trt_times)
+                    result_entry["trt"] = stats(trt_times)
+                except Exception as e:
+                    print(f"  TensorRT FAILED: {e}")
+                    result_entry["trt_error"] = str(e)
 
-        # Comparison
-        print_comparison(nv_times, name, hp_times=hp_times, trt_times=trt_times)
-        results.append(result_entry)
+            # Comparison
+            print_comparison(nv_times, name, hp_times=hp_times, trt_times=trt_times)
+            results.append(result_entry)
 
     return results
 
@@ -176,65 +189,75 @@ def run_cnn_benchmarks(args):
     """Run 1D-CNN benchmarks."""
     from bench_tinygrad import bench_nv_cnn
     results = []
+    use_fp16 = args.use_fp16
+    use_tf32 = args.use_tf32
+    prec_label = "TF32" if use_tf32 else ("FP16" if use_fp16 else "FP32")
 
-    print("\n" + "=" * 90)
-    print("1D-CNN ARCHITECTURES — tinygrad NV=1 vs C Hot Path vs TensorRT")
-    print(f"  Input: (1, {IN_DIM}, {SEQ_LEN}) — {SEQ_LEN}-sample IMU time window")
-    print("  Output: (1, 4) — thrust + angular rates")
-    print("  Real-world: temporal feature extraction from sensor history")
-    print("=" * 90)
+    for batch_size in args.batch_sizes:
+        bs_label = f"batch={batch_size}"
+        print("\n" + "=" * 90)
+        print(f"1D-CNN ARCHITECTURES ({prec_label}, {bs_label}) — tinygrad NV=1 vs C Hot Path vs TensorRT")
+        print(f"  Input: ({batch_size}, {IN_DIM}, {SEQ_LEN}) — {SEQ_LEN}-sample IMU time window")
+        print("  Output: (1, 4) — thrust + angular rates")
+        print("  Real-world: temporal feature extraction from sensor history")
+        print("=" * 90)
 
-    for name, conv_layers, mlp_head, desc, use_case in CNN_CONFIGS:
-        print(f"\n{'─' * 90}")
-        print(f"  {name}: {desc}")
-        print(f"  Use case: {use_case}")
-        print(f"{'─' * 90}")
+        for name, conv_layers, mlp_head, desc, use_case in CNN_CONFIGS:
+            print(f"\n{'─' * 90}")
+            print(f"  {name}: {desc} [{bs_label}]")
+            print(f"  Use case: {use_case}")
+            print(f"{'─' * 90}")
 
-        weight_path = WEIGHTS_DIR / f"{name}.npz"
-        export_cnn_onnx(conv_layers, mlp_head, str(weight_path))
+            prec_suffix = "tf32" if use_tf32 else ("fp16" if use_fp16 else "fp32")
+            weight_path = WEIGHTS_DIR / f"{name}_{prec_suffix}.npz"
+            export_cnn_onnx(conv_layers, mlp_head, str(weight_path), use_fp16=use_fp16, batch_size=batch_size)
 
-        print(f"\n  [tinygrad NV=1]")
-        nv_times, params, nv_result = bench_nv_cnn(
-            name, conv_layers, mlp_head, warmup=args.warmup, n_iters=args.iters)
-        print_stats(f"NV=1 direct memmove ({params:,} params)", nv_times)
+            print(f"\n  [tinygrad NV=1 {prec_label}]")
+            nv_times, params, nv_result = bench_nv_cnn(
+                name, conv_layers, mlp_head, warmup=args.warmup, n_iters=args.iters,
+                use_fp16=use_fp16, batch_size=batch_size)
+            print_stats(f"NV=1 {prec_label} direct memmove ({params:,} params)", nv_times)
 
-        result_entry = {
-            "name": name, "arch": "cnn", "params": params,
-            "conv_layers": conv_layers, "mlp_head": mlp_head,
-            "desc": desc, "use_case": use_case,
-            "nv": stats(nv_times),
-        }
+            result_entry = {
+                "name": name, "arch": "cnn", "params": params,
+                "conv_layers": conv_layers, "mlp_head": mlp_head,
+                "desc": desc, "use_case": use_case,
+                "batch_size": batch_size,
+                "nv": stats(nv_times),
+            }
 
-        hp_times = None
-        if not args.skip_hotpath:
-            print(f"\n  [C GPU Hot Path]")
-            try:
-                from bench_c_hot_path import bench_c_cnn
-                hp_times, _ = bench_c_cnn(
-                    name, conv_layers, mlp_head, warmup=args.warmup, n_iters=args.iters)
-                if hp_times is not None:
-                    print_stats(f"C hot path ({params:,} params)", hp_times)
-                    result_entry["hotpath"] = stats(hp_times)
-            except Exception as e:
-                print(f"  C Hot Path FAILED: {e}")
-                result_entry["hotpath_error"] = str(e)
+            hp_times = None
+            if not args.skip_hotpath:
+                print(f"\n  [C GPU Hot Path {prec_label}]")
+                try:
+                    from bench_c_hot_path import bench_c_cnn
+                    hp_times, _ = bench_c_cnn(
+                        name, conv_layers, mlp_head, warmup=args.warmup, n_iters=args.iters,
+                        use_fp16=use_fp16, batch_size=batch_size)
+                    if hp_times is not None:
+                        print_stats(f"C hot path ({params:,} params)", hp_times)
+                        result_entry["hotpath"] = stats(hp_times)
+                except Exception as e:
+                    print(f"  C Hot Path FAILED: {e}")
+                    result_entry["hotpath_error"] = str(e)
 
-        trt_times = None
-        if not args.skip_tensorrt:
-            print(f"\n  [TensorRT FP16]")
-            try:
-                from bench_tensorrt import bench_trt_cnn
-                trt_times, _ = bench_trt_cnn(
-                    name, conv_layers, mlp_head, str(weight_path),
-                    warmup=args.warmup, n_iters=args.iters)
-                print_stats(f"TensorRT FP16 ({params:,} params)", trt_times)
-                result_entry["trt"] = stats(trt_times)
-            except Exception as e:
-                print(f"  TensorRT FAILED: {e}")
-                result_entry["trt_error"] = str(e)
+            trt_times = None
+            if not args.skip_tensorrt:
+                print(f"\n  [TensorRT {prec_label}]")
+                try:
+                    from bench_tensorrt import bench_trt_cnn
+                    trt_times, _ = bench_trt_cnn(
+                        name, conv_layers, mlp_head, str(weight_path),
+                        warmup=args.warmup, n_iters=args.iters,
+                        use_fp16=use_fp16, use_tf32=use_tf32, batch_size=batch_size)
+                    print_stats(f"TensorRT {prec_label} ({params:,} params)", trt_times)
+                    result_entry["trt"] = stats(trt_times)
+                except Exception as e:
+                    print(f"  TensorRT FAILED: {e}")
+                    result_entry["trt_error"] = str(e)
 
-        print_comparison(nv_times, name, hp_times=hp_times, trt_times=trt_times)
-        results.append(result_entry)
+            print_comparison(nv_times, name, hp_times=hp_times, trt_times=trt_times)
+            results.append(result_entry)
 
     return results
 
@@ -243,65 +266,75 @@ def run_hybrid_benchmarks(args):
     """Run Hybrid CNN+MLP benchmarks."""
     from bench_tinygrad import bench_nv_hybrid
     results = []
+    use_fp16 = args.use_fp16
+    use_tf32 = args.use_tf32
+    prec_label = "TF32" if use_tf32 else ("FP16" if use_fp16 else "FP32")
 
-    print("\n" + "=" * 90)
-    print("HYBRID CNN+MLP ARCHITECTURES — tinygrad NV=1 vs C Hot Path vs TensorRT")
-    print(f"  Inputs: IMU window (1, {IN_DIM}, {SEQ_LEN}) + Current state (1, {IN_DIM})")
-    print("  Output: (1, 4) — thrust + angular rates")
-    print("  Real-world: history-aware perception fused with reactive control")
-    print("=" * 90)
+    for batch_size in args.batch_sizes:
+        bs_label = f"batch={batch_size}"
+        print("\n" + "=" * 90)
+        print(f"HYBRID CNN+MLP ARCHITECTURES ({prec_label}, {bs_label}) — tinygrad NV=1 vs C Hot Path vs TensorRT")
+        print(f"  Inputs: IMU window ({batch_size}, {IN_DIM}, {SEQ_LEN}) + Current state ({batch_size}, {IN_DIM})")
+        print("  Output: (1, 4) — thrust + angular rates")
+        print("  Real-world: history-aware perception fused with reactive control")
+        print("=" * 90)
 
-    for name, conv_layers, mlp_head, desc, use_case in HYBRID_CONFIGS:
-        print(f"\n{'─' * 90}")
-        print(f"  {name}: {desc}")
-        print(f"  Use case: {use_case}")
-        print(f"{'─' * 90}")
+        for name, conv_layers, mlp_head, desc, use_case in HYBRID_CONFIGS:
+            print(f"\n{'─' * 90}")
+            print(f"  {name}: {desc} [{bs_label}]")
+            print(f"  Use case: {use_case}")
+            print(f"{'─' * 90}")
 
-        weight_path = WEIGHTS_DIR / f"{name}.npz"
-        export_hybrid_onnx(conv_layers, mlp_head, str(weight_path))
+            prec_suffix = "tf32" if use_tf32 else ("fp16" if use_fp16 else "fp32")
+            weight_path = WEIGHTS_DIR / f"{name}_{prec_suffix}.npz"
+            export_hybrid_onnx(conv_layers, mlp_head, str(weight_path), use_fp16=use_fp16, batch_size=batch_size)
 
-        print(f"\n  [tinygrad NV=1]")
-        nv_times, params, nv_result = bench_nv_hybrid(
-            name, conv_layers, mlp_head, warmup=args.warmup, n_iters=args.iters)
-        print_stats(f"NV=1 direct memmove ({params:,} params)", nv_times)
+            print(f"\n  [tinygrad NV=1 {prec_label}]")
+            nv_times, params, nv_result = bench_nv_hybrid(
+                name, conv_layers, mlp_head, warmup=args.warmup, n_iters=args.iters,
+                use_fp16=use_fp16, batch_size=batch_size)
+            print_stats(f"NV=1 {prec_label} direct memmove ({params:,} params)", nv_times)
 
-        result_entry = {
-            "name": name, "arch": "hybrid", "params": params,
-            "conv_layers": conv_layers, "mlp_head": mlp_head,
-            "desc": desc, "use_case": use_case,
-            "nv": stats(nv_times),
-        }
+            result_entry = {
+                "name": name, "arch": "hybrid", "params": params,
+                "conv_layers": conv_layers, "mlp_head": mlp_head,
+                "desc": desc, "use_case": use_case,
+                "batch_size": batch_size,
+                "nv": stats(nv_times),
+            }
 
-        hp_times = None
-        if not args.skip_hotpath:
-            print(f"\n  [C GPU Hot Path]")
-            try:
-                from bench_c_hot_path import bench_c_hybrid
-                hp_times, _ = bench_c_hybrid(
-                    name, conv_layers, mlp_head, warmup=args.warmup, n_iters=args.iters)
-                if hp_times is not None:
-                    print_stats(f"C hot path ({params:,} params)", hp_times)
-                    result_entry["hotpath"] = stats(hp_times)
-            except Exception as e:
-                print(f"  C Hot Path FAILED: {e}")
-                result_entry["hotpath_error"] = str(e)
+            hp_times = None
+            if not args.skip_hotpath:
+                print(f"\n  [C GPU Hot Path {prec_label}]")
+                try:
+                    from bench_c_hot_path import bench_c_hybrid
+                    hp_times, _ = bench_c_hybrid(
+                        name, conv_layers, mlp_head, warmup=args.warmup, n_iters=args.iters,
+                        use_fp16=use_fp16, batch_size=batch_size)
+                    if hp_times is not None:
+                        print_stats(f"C hot path ({params:,} params)", hp_times)
+                        result_entry["hotpath"] = stats(hp_times)
+                except Exception as e:
+                    print(f"  C Hot Path FAILED: {e}")
+                    result_entry["hotpath_error"] = str(e)
 
-        trt_times = None
-        if not args.skip_tensorrt:
-            print(f"\n  [TensorRT FP16]")
-            try:
-                from bench_tensorrt import bench_trt_hybrid
-                trt_times, _ = bench_trt_hybrid(
-                    name, conv_layers, mlp_head, str(weight_path),
-                    warmup=args.warmup, n_iters=args.iters)
-                print_stats(f"TensorRT FP16 ({params:,} params)", trt_times)
-                result_entry["trt"] = stats(trt_times)
-            except Exception as e:
-                print(f"  TensorRT FAILED: {e}")
-                result_entry["trt_error"] = str(e)
+            trt_times = None
+            if not args.skip_tensorrt:
+                print(f"\n  [TensorRT {prec_label}]")
+                try:
+                    from bench_tensorrt import bench_trt_hybrid
+                    trt_times, _ = bench_trt_hybrid(
+                        name, conv_layers, mlp_head, str(weight_path),
+                        warmup=args.warmup, n_iters=args.iters,
+                        use_fp16=use_fp16, use_tf32=use_tf32, batch_size=batch_size)
+                    print_stats(f"TensorRT {prec_label} ({params:,} params)", trt_times)
+                    result_entry["trt"] = stats(trt_times)
+                except Exception as e:
+                    print(f"  TensorRT FAILED: {e}")
+                    result_entry["trt_error"] = str(e)
 
-        print_comparison(nv_times, name, hp_times=hp_times, trt_times=trt_times)
-        results.append(result_entry)
+            print_comparison(nv_times, name, hp_times=hp_times, trt_times=trt_times)
+            results.append(result_entry)
 
     return results
 
@@ -425,13 +458,16 @@ def print_summary(all_results):
     return wins
 
 
-def save_results(all_results, path):
+def save_results(all_results, path, precision="fp16", batch_sizes=None):
     """Save raw results as JSON for further analysis."""
     with open(path, "w") as f:
         json.dump({
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
             "platform": "Jetson AGX Orin 64GB",
+            "precision": precision,
+            "batch_sizes": batch_sizes or [1],
             "jitbeam": os.environ.get("JITBEAM", "default"),
+            "allow_tf32": os.environ.get("ALLOW_TF32", "0"),
             "results": all_results,
         }, f, indent=2, default=str)
     print(f"\nRaw results saved to {path}")
@@ -445,6 +481,10 @@ def main():
     parser = argparse.ArgumentParser(description="tinygrad NV=1 vs C Hot Path vs TensorRT benchmark")
     parser.add_argument("--arch", choices=["mlp", "cnn", "hybrid", "all"], default="all",
                         help="Architecture type to benchmark (default: all)")
+    parser.add_argument("--precision", choices=["fp16", "fp32", "tf32"], default="fp16",
+                        help="Numeric precision for all backends (default: fp16)")
+    parser.add_argument("--batch", type=str, default="1",
+                        help="Comma-separated batch sizes, e.g. '1,8,16' (default: 1)")
     parser.add_argument("--iters", type=int, default=10000,
                         help="Iterations per benchmark (default: 10000)")
     parser.add_argument("--warmup", type=int, default=50,
@@ -456,21 +496,32 @@ def main():
     parser.add_argument("--output", type=str, default="results.json",
                         help="Output JSON file for raw results")
     args = parser.parse_args()
+    args.use_fp16 = (args.precision == "fp16")
+    args.use_tf32 = (args.precision == "tf32")
+    args.batch_sizes = [int(b.strip()) for b in args.batch.split(",")]
+    prec_label = "TF32" if args.use_tf32 else ("FP16" if args.use_fp16 else "FP32")
+
+    # Set ALLOW_TF32 for tinygrad when using TF32 precision
+    if args.use_tf32:
+        os.environ["ALLOW_TF32"] = "1"
 
     WEIGHTS_DIR.mkdir(exist_ok=True)
 
     print("=" * 90)
-    print("tinygrad NV=1 vs C Hot Path vs TensorRT — Presentation Benchmarks")
+    print(f"tinygrad NV=1 vs C Hot Path vs TensorRT — {prec_label} Presentation Benchmarks")
     print("=" * 90)
     print(f"  Platform:    Jetson AGX Orin 64GB")
+    print(f"  Precision:   {prec_label}")
+    print(f"  Batch sizes: {args.batch_sizes}")
     print(f"  JITBEAM:     {os.environ.get('JITBEAM', 'default')}")
+    print(f"  ALLOW_TF32:  {os.environ.get('ALLOW_TF32', '0')}")
     print(f"  Iterations:  {args.iters}")
     print(f"  Warmup:      {args.warmup}")
-    backends = "tinygrad NV=1"
+    backends = f"tinygrad NV=1 {prec_label}"
     if not args.skip_hotpath:
-        backends += " + C Hot Path"
+        backends += f" + C Hot Path {prec_label}"
     if not args.skip_tensorrt:
-        backends += " + TensorRT FP16"
+        backends += f" + TensorRT {prec_label}"
     print(f"  Backends:    {backends}")
     print(f"  Archs:       {args.arch}")
 
@@ -490,7 +541,7 @@ def main():
 
     # Save
     output_path = Path(__file__).parent / args.output
-    save_results(all_results, str(output_path))
+    save_results(all_results, str(output_path), precision=args.precision, batch_sizes=args.batch_sizes)
 
 
 if __name__ == "__main__":

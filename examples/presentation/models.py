@@ -4,8 +4,8 @@ Defines MLPs, 1D-CNNs, and hybrid CNN+MLP architectures sized for real-world
 drone/robot control loops. Each model can be instantiated in tinygrad or exported
 to ONNX for TensorRT consumption.
 
-All models use FP16 weights and operate on FP16 tensors (matching Orin's
-Tensor Cores and our existing NV=1 benchmarks).
+All models support both FP16 and FP32 precision via the use_fp16 parameter.
+FP16 leverages Orin's Tensor Cores; FP32 provides a fair baseline comparison.
 
 Architecture rationale (from drone/robotics literature):
   MLP:    Standard for learned controllers (Hwangbo 2017, Kaufmann 2020)
@@ -61,6 +61,10 @@ MLP_CONFIGS = [
      "Path planner, obstacle avoidance"),
     ("mlp_2m",     [1024, 1024, 1024], "12→1024→1024→1024→4 (~2.1M)",
      "Large policy, multi-agent coordination"),
+    ("mlp_4m",     [2048, 2048],       "12→2048→2048→4 (~4.2M)",
+     "Vision-language policy, world model MLP head"),
+    ("mlp_8m",     [2048, 2048, 2048], "12→2048→2048→2048→4 (~8.4M)",
+     "Large multi-modal policy, transformer MLP block"),
 ]
 
 # 1D-CNN configs: (name, conv_layers, mlp_head, description, use_case)
@@ -82,6 +86,16 @@ CNN_CONFIGS = [
      [256, 128],
      "Conv(128,k3)→Conv(256,k3)→Conv(256,k3)→FC(256)→FC(128)→4 (~500K)",
      "End-to-end state estimation from IMU time series"),
+    ("cnn_xlarge",
+     [(256, 3, 1), (512, 3, 1), (512, 3, 1)],
+     [512, 256],
+     "Conv(256,k3)→Conv(512,k3)→Conv(512,k3)→FC(512)→FC(256)→4 (~2M)",
+     "Multi-sensor fusion encoder, lidar+IMU feature net"),
+    ("cnn_xxlarge",
+     [(256, 3, 1), (512, 3, 1), (512, 3, 1), (1024, 3, 1)],
+     [1024, 512],
+     "Conv(256,k3)→Conv(512,k3)→Conv(512,k3)→Conv(1024,k3)→FC(1024)→FC(512)→4 (~6M)",
+     "Deep temporal backbone, point cloud processing"),
 ]
 
 # Hybrid CNN+MLP configs: (name, cnn_layers, mlp_layers, description, use_case)
@@ -109,11 +123,12 @@ HYBRID_CONFIGS = [
 # tinygrad model builders
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def build_tinygrad_mlp(hidden_dims, seed=SEED):
+def build_tinygrad_mlp(hidden_dims, seed=SEED, use_fp16=True, batch_size=1):
     """Build an MLP in tinygrad with deterministic weights. Returns (model, params_count)."""
     from tinygrad import Tensor, dtypes
     from tinygrad import nn as tg_nn
 
+    np_dtype = np.float16 if use_fp16 else np.float32
     rng = np.random.RandomState(seed)
     dims = [IN_DIM] + list(hidden_dims) + [OUT_DIM]
 
@@ -123,8 +138,8 @@ def build_tinygrad_mlp(hidden_dims, seed=SEED):
         fi, fo = dims[i], dims[i + 1]
         w, b = _kaiming_init(rng, fi, fo)
         lin = tg_nn.Linear(fi, fo)
-        lin.weight = Tensor(w.astype(np.float16))
-        lin.bias = Tensor(b.astype(np.float16))
+        lin.weight = Tensor(w.astype(np_dtype))
+        lin.bias = Tensor(b.astype(np_dtype))
         layers.append(lin)
         total_params += fo * fi + fo
 
@@ -141,10 +156,11 @@ def build_tinygrad_mlp(hidden_dims, seed=SEED):
     return MLP(), total_params
 
 
-def build_tinygrad_cnn(conv_config, mlp_head_dims, seed=SEED):
-    """Build a 1D-CNN in tinygrad. Input: (1, IN_DIM, SEQ_LEN). Returns (model, params)."""
+def build_tinygrad_cnn(conv_config, mlp_head_dims, seed=SEED, use_fp16=True, batch_size=1):
+    """Build a 1D-CNN in tinygrad. Input: (batch_size, IN_DIM, SEQ_LEN). Returns (model, params)."""
     from tinygrad import Tensor, dtypes
 
+    np_dtype = np.float16 if use_fp16 else np.float32
     rng = np.random.RandomState(seed)
     conv_layers = []
     total_params = 0
@@ -154,8 +170,8 @@ def build_tinygrad_cnn(conv_config, mlp_head_dims, seed=SEED):
     for out_ch, ks, stride in conv_config:
         w, b = _conv1d_init(rng, in_ch, out_ch, ks)
         conv_layers.append((
-            Tensor(w.astype(np.float16)),
-            Tensor(b.astype(np.float16)),
+            Tensor(w.astype(np_dtype)),
+            Tensor(b.astype(np_dtype)),
             stride
         ))
         total_params += out_ch * in_ch * ks + out_ch
@@ -175,8 +191,8 @@ def build_tinygrad_cnn(conv_config, mlp_head_dims, seed=SEED):
         fi, fo = dims[i], dims[i + 1]
         w, b = _kaiming_init(rng, fi, fo)
         lin = tg_nn.Linear(fi, fo)
-        lin.weight = Tensor(w.astype(np.float16))
-        lin.bias = Tensor(b.astype(np.float16))
+        lin.weight = Tensor(w.astype(np_dtype))
+        lin.bias = Tensor(b.astype(np_dtype))
         mlp_layers.append(lin)
         total_params += fo * fi + fo
 
@@ -200,12 +216,12 @@ def build_tinygrad_cnn(conv_config, mlp_head_dims, seed=SEED):
     return CNN1D(), total_params
 
 
-def build_tinygrad_hybrid(conv_config, mlp_head_dims, seed=SEED):
+def build_tinygrad_hybrid(conv_config, mlp_head_dims, seed=SEED, use_fp16=True, batch_size=1):
     """Build a hybrid CNN+MLP in tinygrad.
 
     Two inputs:
-      - imu_window: (1, IN_DIM, SEQ_LEN) — temporal IMU history for CNN
-      - current_state: (1, IN_DIM) — current state for direct MLP processing
+      - imu_window: (batch_size, IN_DIM, SEQ_LEN) — temporal IMU history for CNN
+      - current_state: (batch_size, IN_DIM) — current state for direct MLP processing
 
     The CNN extracts temporal features, which are concatenated with current_state
     and fed through the MLP head.
@@ -213,6 +229,7 @@ def build_tinygrad_hybrid(conv_config, mlp_head_dims, seed=SEED):
     from tinygrad import Tensor, dtypes
     from tinygrad import nn as tg_nn
 
+    np_dtype = np.float16 if use_fp16 else np.float32
     rng = np.random.RandomState(seed)
     conv_layers = []
     total_params = 0
@@ -221,8 +238,8 @@ def build_tinygrad_hybrid(conv_config, mlp_head_dims, seed=SEED):
     for out_ch, ks, stride in conv_config:
         w, b = _conv1d_init(rng, in_ch, out_ch, ks)
         conv_layers.append((
-            Tensor(w.astype(np.float16)),
-            Tensor(b.astype(np.float16)),
+            Tensor(w.astype(np_dtype)),
+            Tensor(b.astype(np_dtype)),
             stride
         ))
         total_params += out_ch * in_ch * ks + out_ch
@@ -241,8 +258,8 @@ def build_tinygrad_hybrid(conv_config, mlp_head_dims, seed=SEED):
         fi, fo = dims[i], dims[i + 1]
         w, b = _kaiming_init(rng, fi, fo)
         lin = tg_nn.Linear(fi, fo)
-        lin.weight = Tensor(w.astype(np.float16))
-        lin.bias = Tensor(b.astype(np.float16))
+        lin.weight = Tensor(w.astype(np_dtype))
+        lin.bias = Tensor(b.astype(np_dtype))
         mlp_layers.append(lin)
         total_params += fo * fi + fo
 
@@ -282,7 +299,7 @@ def _numpy_mlp_forward(layers_f16, x):
     return x
 
 
-def export_mlp_onnx(hidden_dims, path, seed=SEED):
+def export_mlp_onnx(hidden_dims, path, seed=SEED, use_fp16=True, batch_size=1):
     """Export an MLP to ONNX format for TensorRT. Returns (onnx_path, params_count, ref_output).
 
     We build the ONNX graph manually (no framework dependency) to keep
@@ -291,30 +308,22 @@ def export_mlp_onnx(hidden_dims, path, seed=SEED):
     rng = np.random.RandomState(seed)
     dims = [IN_DIM] + list(hidden_dims) + [OUT_DIM]
 
-    # We'll build the ONNX protobuf manually using the onnx helper format.
-    # This avoids needing `import onnx` which may not be in the flake.
-    # Instead, we write a raw ONNX file using the binary protobuf format.
-    #
-    # Actually — let's generate a TensorRT engine directly from C API
-    # in bench_tensorrt.py. The ONNX route adds a dependency we don't need.
-    # TensorRT's INetworkDefinition API can build the same MLP/CNN directly.
-    #
-    # For now, return the weight data that bench_tensorrt.py will consume.
-    layers_f16 = []
+    np_dtype = np.float16 if use_fp16 else np.float32
+    layers_typed = []
     total_params = 0
     for i in range(len(dims) - 1):
         fi, fo = dims[i], dims[i + 1]
         w, b = _kaiming_init(rng, fi, fo)
-        layers_f16.append((w.astype(np.float16), b.astype(np.float16)))
+        layers_typed.append((w.astype(np_dtype), b.astype(np_dtype)))
         total_params += fo * fi + fo
 
     # Compute reference output
-    test_input = np.random.RandomState(99).randn(1, IN_DIM).astype(np.float16)
-    ref_output = _numpy_mlp_forward(layers_f16, test_input.astype(np.float32)).astype(np.float16)
+    test_input = np.random.RandomState(99).randn(batch_size, IN_DIM).astype(np_dtype)
+    ref_output = _numpy_mlp_forward(layers_typed, test_input.astype(np.float32)).astype(np_dtype)
 
     # Save weights as npz for TensorRT builder to consume
     weight_dict = {}
-    for i, (w, b) in enumerate(layers_f16):
+    for i, (w, b) in enumerate(layers_typed):
         weight_dict[f"w{i}"] = w
         weight_dict[f"b{i}"] = b
     np.savez(path, **weight_dict, test_input=test_input, ref_output=ref_output)
@@ -322,8 +331,9 @@ def export_mlp_onnx(hidden_dims, path, seed=SEED):
     return path, total_params, ref_output
 
 
-def export_cnn_onnx(conv_config, mlp_head_dims, path, seed=SEED):
+def export_cnn_onnx(conv_config, mlp_head_dims, path, seed=SEED, use_fp16=True, batch_size=1):
     """Export CNN weights as npz for TensorRT builder."""
+    np_dtype = np.float16 if use_fp16 else np.float32
     rng = np.random.RandomState(seed)
     weight_dict = {}
     total_params = 0
@@ -331,8 +341,8 @@ def export_cnn_onnx(conv_config, mlp_head_dims, path, seed=SEED):
 
     for i, (out_ch, ks, stride) in enumerate(conv_config):
         w, b = _conv1d_init(rng, in_ch, out_ch, ks)
-        weight_dict[f"conv_w{i}"] = w.astype(np.float16)
-        weight_dict[f"conv_b{i}"] = b.astype(np.float16)
+        weight_dict[f"conv_w{i}"] = w.astype(np_dtype)
+        weight_dict[f"conv_b{i}"] = b.astype(np_dtype)
         weight_dict[f"conv_stride{i}"] = np.array([stride])
         total_params += out_ch * in_ch * ks + out_ch
         in_ch = out_ch
@@ -346,20 +356,21 @@ def export_cnn_onnx(conv_config, mlp_head_dims, path, seed=SEED):
     for i in range(len(dims) - 1):
         fi, fo = dims[i], dims[i + 1]
         w, b = _kaiming_init(rng, fi, fo)
-        weight_dict[f"fc_w{i}"] = w.astype(np.float16)
-        weight_dict[f"fc_b{i}"] = b.astype(np.float16)
+        weight_dict[f"fc_w{i}"] = w.astype(np_dtype)
+        weight_dict[f"fc_b{i}"] = b.astype(np_dtype)
         total_params += fo * fi + fo
 
     weight_dict["n_conv_layers"] = np.array([len(conv_config)])
     weight_dict["n_fc_layers"] = np.array([len(dims) - 1])
 
-    test_input = np.random.RandomState(99).randn(1, IN_DIM, SEQ_LEN).astype(np.float16)
+    test_input = np.random.RandomState(99).randn(batch_size, IN_DIM, SEQ_LEN).astype(np_dtype)
     np.savez(path, **weight_dict, test_input=test_input)
     return path, total_params
 
 
-def export_hybrid_onnx(conv_config, mlp_head_dims, path, seed=SEED):
+def export_hybrid_onnx(conv_config, mlp_head_dims, path, seed=SEED, use_fp16=True, batch_size=1):
     """Export hybrid CNN+MLP weights as npz for TensorRT builder."""
+    np_dtype = np.float16 if use_fp16 else np.float32
     rng = np.random.RandomState(seed)
     weight_dict = {}
     total_params = 0
@@ -367,8 +378,8 @@ def export_hybrid_onnx(conv_config, mlp_head_dims, path, seed=SEED):
 
     for i, (out_ch, ks, stride) in enumerate(conv_config):
         w, b = _conv1d_init(rng, in_ch, out_ch, ks)
-        weight_dict[f"conv_w{i}"] = w.astype(np.float16)
-        weight_dict[f"conv_b{i}"] = b.astype(np.float16)
+        weight_dict[f"conv_w{i}"] = w.astype(np_dtype)
+        weight_dict[f"conv_b{i}"] = b.astype(np_dtype)
         weight_dict[f"conv_stride{i}"] = np.array([stride])
         total_params += out_ch * in_ch * ks + out_ch
         in_ch = out_ch
@@ -379,15 +390,15 @@ def export_hybrid_onnx(conv_config, mlp_head_dims, path, seed=SEED):
     for i in range(len(dims) - 1):
         fi, fo = dims[i], dims[i + 1]
         w, b = _kaiming_init(rng, fi, fo)
-        weight_dict[f"fc_w{i}"] = w.astype(np.float16)
-        weight_dict[f"fc_b{i}"] = b.astype(np.float16)
+        weight_dict[f"fc_w{i}"] = w.astype(np_dtype)
+        weight_dict[f"fc_b{i}"] = b.astype(np_dtype)
         total_params += fo * fi + fo
 
     weight_dict["n_conv_layers"] = np.array([len(conv_config)])
     weight_dict["n_fc_layers"] = np.array([len(dims) - 1])
     weight_dict["cnn_out_dim"] = np.array([cnn_out_dim])
 
-    test_imu = np.random.RandomState(99).randn(1, IN_DIM, SEQ_LEN).astype(np.float16)
-    test_state = np.random.RandomState(98).randn(1, IN_DIM).astype(np.float16)
+    test_imu = np.random.RandomState(99).randn(batch_size, IN_DIM, SEQ_LEN).astype(np_dtype)
+    test_state = np.random.RandomState(98).randn(batch_size, IN_DIM).astype(np_dtype)
     np.savez(path, **weight_dict, test_imu=test_imu, test_state=test_state)
     return path, total_params

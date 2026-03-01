@@ -130,8 +130,10 @@ def _setup_direct_memory(tensor):
     return view.addr, tensor.dtype.itemsize * int(np.prod(tensor.shape))
 
 
-def _bench_c_gpu_dispatch(cfg_dict, sensor_pool, n_iters, warmup, dev):
+def _bench_c_gpu_dispatch(cfg_dict, sensor_pool, n_iters, warmup, dev, use_fp16=True):
     """Run the C hot path benchmark. Returns list of times in µs."""
+    np_dtype = np.float16 if use_fp16 else np.float32
+    itemsize = 2 if use_fp16 else 4
     lib = ctypes.CDLL(HOT_PATH_SO)
     lib.hot_path_init.argtypes = [ctypes.c_void_p]
     lib.hot_path_init.restype = None
@@ -148,14 +150,14 @@ def _bench_c_gpu_dispatch(cfg_dict, sensor_pool, n_iters, warmup, dev):
 
     # Warmup
     w_sensor = np.ascontiguousarray(sensor_pool[:warmup].reshape(-1))
-    w_action = np.zeros(warmup * out_size // 2, dtype=np.float16)
+    w_action = np.zeros(warmup * out_size // itemsize, dtype=np_dtype)
     w_times = (ctypes.c_uint64 * warmup)()
     lib.hot_path_benchmark(ctypes.byref(cfg_struct), w_sensor.ctypes.data,
                            w_action.ctypes.data, warmup, w_times)
 
     # Benchmark
     b_sensor = np.ascontiguousarray(sensor_pool[warmup:warmup+n_iters].reshape(-1))
-    b_action = np.zeros(n_iters * out_size // 2, dtype=np.float16)
+    b_action = np.zeros(n_iters * out_size // itemsize, dtype=np_dtype)
     b_times = (ctypes.c_uint64 * n_iters)()
     lib.hot_path_benchmark(ctypes.byref(cfg_struct), b_sensor.ctypes.data,
                            b_action.ctypes.data, n_iters, b_times)
@@ -174,7 +176,7 @@ def _bench_c_gpu_dispatch(cfg_dict, sensor_pool, n_iters, warmup, dev):
 # Public API — MLP benchmark via C hot path
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def bench_c_mlp(name, hidden_dims, seed=42, warmup=50, n_iters=10000):
+def bench_c_mlp(name, hidden_dims, seed=42, warmup=50, n_iters=10000, use_fp16=True, batch_size=1):
     """Benchmark an MLP via the C GPU hot path.
 
     Setup:
@@ -191,12 +193,14 @@ def bench_c_mlp(name, hidden_dims, seed=42, warmup=50, n_iters=10000):
     from models import IN_DIM, OUT_DIM, build_tinygrad_mlp
     from export_graph import export_hot_path_config
 
+    np_dtype = np.float16 if use_fp16 else np.float32
+    tg_dtype = dtypes.float16 if use_fp16 else dtypes.float32
     dev = Device["NV"]
-    model, params = build_tinygrad_mlp(hidden_dims, seed=seed)
+    model, params = build_tinygrad_mlp(hidden_dims, seed=seed, use_fp16=use_fp16, batch_size=batch_size)
 
     # Static buffers
-    static_x = Tensor.zeros(1, IN_DIM, dtype=dtypes.float16).contiguous().realize()
-    static_out = Tensor.zeros(1, OUT_DIM, dtype=dtypes.float16).contiguous().realize()
+    static_x = Tensor.zeros(batch_size, IN_DIM, dtype=tg_dtype).contiguous().realize()
+    static_out = Tensor.zeros(batch_size, OUT_DIM, dtype=tg_dtype).contiguous().realize()
     dev.synchronize()
 
     @TinyJit
@@ -205,7 +209,7 @@ def bench_c_mlp(name, hidden_dims, seed=42, warmup=50, n_iters=10000):
 
     # Warmup tinygrad JIT (captures graph)
     rng = np.random.RandomState(99)
-    data_pool = rng.randn(warmup + n_iters + 10, 1, IN_DIM).astype(np.float16)
+    data_pool = rng.randn(warmup + n_iters + 10, batch_size, IN_DIM).astype(np_dtype)
     in_addr, in_nbytes = _setup_direct_memory(static_x)
 
     for i in range(warmup):
@@ -220,7 +224,7 @@ def bench_c_mlp(name, hidden_dims, seed=42, warmup=50, n_iters=10000):
 
     # Run C hot path benchmark
     sensor_pool = data_pool[warmup:]  # fresh data for C benchmark
-    times = _bench_c_gpu_dispatch(cfg_dict, sensor_pool, n_iters, min(warmup, 30), dev)
+    times = _bench_c_gpu_dispatch(cfg_dict, sensor_pool, n_iters, min(warmup, 30), dev, use_fp16=use_fp16)
 
     # Clean up
     del run, static_x, static_out
@@ -229,7 +233,7 @@ def bench_c_mlp(name, hidden_dims, seed=42, warmup=50, n_iters=10000):
     return times, params
 
 
-def bench_c_cnn(name, conv_config, mlp_head_dims, seed=42, warmup=50, n_iters=10000):
+def bench_c_cnn(name, conv_config, mlp_head_dims, seed=42, warmup=50, n_iters=10000, use_fp16=True, batch_size=1):
     """Benchmark a 1D-CNN via the C GPU hot path."""
     if not _ensure_hot_path_so():
         print(f"  SKIP: hot_path.so not available")
@@ -238,11 +242,13 @@ def bench_c_cnn(name, conv_config, mlp_head_dims, seed=42, warmup=50, n_iters=10
     from models import IN_DIM, OUT_DIM, SEQ_LEN, build_tinygrad_cnn
     from export_graph import export_hot_path_config
 
+    np_dtype = np.float16 if use_fp16 else np.float32
+    tg_dtype = dtypes.float16 if use_fp16 else dtypes.float32
     dev = Device["NV"]
-    model, params = build_tinygrad_cnn(conv_config, mlp_head_dims, seed=seed)
+    model, params = build_tinygrad_cnn(conv_config, mlp_head_dims, seed=seed, use_fp16=use_fp16, batch_size=batch_size)
 
-    static_x = Tensor.zeros(1, IN_DIM, SEQ_LEN, dtype=dtypes.float16).contiguous().realize()
-    static_out = Tensor.zeros(1, OUT_DIM, dtype=dtypes.float16).contiguous().realize()
+    static_x = Tensor.zeros(batch_size, IN_DIM, SEQ_LEN, dtype=tg_dtype).contiguous().realize()
+    static_out = Tensor.zeros(batch_size, OUT_DIM, dtype=tg_dtype).contiguous().realize()
     dev.synchronize()
 
     @TinyJit
@@ -250,7 +256,7 @@ def bench_c_cnn(name, conv_config, mlp_head_dims, seed=42, warmup=50, n_iters=10
         static_out.assign(model(static_x)).realize()
 
     rng = np.random.RandomState(99)
-    data_pool = rng.randn(warmup + n_iters + 10, 1, IN_DIM, SEQ_LEN).astype(np.float16)
+    data_pool = rng.randn(warmup + n_iters + 10, batch_size, IN_DIM, SEQ_LEN).astype(np_dtype)
     in_addr, in_nbytes = _setup_direct_memory(static_x)
 
     for i in range(warmup):
@@ -263,7 +269,7 @@ def bench_c_cnn(name, conv_config, mlp_head_dims, seed=42, warmup=50, n_iters=10
     cfg_dict = export_hot_path_config(run, dev, x_buf, o_buf)
 
     sensor_pool = data_pool[warmup:]
-    times = _bench_c_gpu_dispatch(cfg_dict, sensor_pool, n_iters, min(warmup, 30), dev)
+    times = _bench_c_gpu_dispatch(cfg_dict, sensor_pool, n_iters, min(warmup, 30), dev, use_fp16=use_fp16)
 
     del run, static_x, static_out
     dev.synchronize()
@@ -271,7 +277,7 @@ def bench_c_cnn(name, conv_config, mlp_head_dims, seed=42, warmup=50, n_iters=10
     return times, params
 
 
-def bench_c_hybrid(name, conv_config, mlp_head_dims, seed=42, warmup=50, n_iters=10000):
+def bench_c_hybrid(name, conv_config, mlp_head_dims, seed=42, warmup=50, n_iters=10000, use_fp16=True, batch_size=1):
     """Benchmark a Hybrid CNN+MLP via the C GPU hot path.
 
     For hybrid models with two inputs, we concatenate them into a single
@@ -284,13 +290,15 @@ def bench_c_hybrid(name, conv_config, mlp_head_dims, seed=42, warmup=50, n_iters
     from models import IN_DIM, OUT_DIM, SEQ_LEN, build_tinygrad_hybrid
     from export_graph import export_hot_path_config
 
+    np_dtype = np.float16 if use_fp16 else np.float32
+    tg_dtype = dtypes.float16 if use_fp16 else dtypes.float32
     dev = Device["NV"]
-    model, params = build_tinygrad_hybrid(conv_config, mlp_head_dims, seed=seed)
+    model, params = build_tinygrad_hybrid(conv_config, mlp_head_dims, seed=seed, use_fp16=use_fp16, batch_size=batch_size)
 
     # Two inputs: IMU window + current state
-    static_imu = Tensor.zeros(1, IN_DIM, SEQ_LEN, dtype=dtypes.float16).contiguous().realize()
-    static_state = Tensor.zeros(1, IN_DIM, dtype=dtypes.float16).contiguous().realize()
-    static_out = Tensor.zeros(1, OUT_DIM, dtype=dtypes.float16).contiguous().realize()
+    static_imu = Tensor.zeros(batch_size, IN_DIM, SEQ_LEN, dtype=tg_dtype).contiguous().realize()
+    static_state = Tensor.zeros(batch_size, IN_DIM, dtype=tg_dtype).contiguous().realize()
+    static_out = Tensor.zeros(batch_size, OUT_DIM, dtype=tg_dtype).contiguous().realize()
     dev.synchronize()
 
     @TinyJit
@@ -298,8 +306,8 @@ def bench_c_hybrid(name, conv_config, mlp_head_dims, seed=42, warmup=50, n_iters
         static_out.assign(model(static_imu, static_state)).realize()
 
     rng = np.random.RandomState(99)
-    imu_pool = rng.randn(warmup + n_iters + 50, 1, IN_DIM, SEQ_LEN).astype(np.float16)
-    state_pool = rng.randn(warmup + n_iters + 50, 1, IN_DIM).astype(np.float16)
+    imu_pool = rng.randn(warmup + n_iters + 50, batch_size, IN_DIM, SEQ_LEN).astype(np_dtype)
+    state_pool = rng.randn(warmup + n_iters + 50, batch_size, IN_DIM).astype(np_dtype)
 
     imu_addr, imu_nbytes = _setup_direct_memory(static_imu)
     state_addr, state_nbytes = _setup_direct_memory(static_state)
@@ -355,7 +363,7 @@ def bench_c_hybrid(name, conv_config, mlp_head_dims, seed=42, warmup=50, n_iters
     lib.hot_path_init(ctypes.byref(cfg_struct))
 
     out_nbytes = cfg_dict['output_size']
-    action = np.zeros(OUT_DIM, dtype=np.float16)
+    action = np.zeros(OUT_DIM, dtype=np_dtype)
 
     # Warmup C path
     for i in range(min(warmup, 30)):

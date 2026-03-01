@@ -74,12 +74,14 @@ def _trtexec_env():
 # ONNX export functions
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def _export_mlp_onnx(hidden_dims, weights_npz_path, onnx_path):
+def _export_mlp_onnx(hidden_dims, weights_npz_path, onnx_path, use_fp16=True, batch_size=1):
     """Generate ONNX for an MLP."""
     import onnx
     from onnx import helper, TensorProto, numpy_helper
     from models import IN_DIM, OUT_DIM
 
+    np_dtype = np.float16 if use_fp16 else np.float32
+    onnx_dtype = TensorProto.FLOAT16 if use_fp16 else TensorProto.FLOAT
     data = np.load(weights_npz_path)
     n_layers = sum(1 for k in data.files if k.startswith("w") and k[1:].isdigit())
 
@@ -87,8 +89,8 @@ def _export_mlp_onnx(hidden_dims, weights_npz_path, onnx_path):
     prev = "input"
 
     for i in range(n_layers):
-        w = data[f"w{i}"].astype(np.float16)
-        b = data[f"b{i}"].astype(np.float16)
+        w = data[f"w{i}"].astype(np_dtype)
+        b = data[f"b{i}"].astype(np_dtype)
         initializers.append(numpy_helper.from_array(np.ascontiguousarray(w.T), name=f"w{i}"))
         initializers.append(numpy_helper.from_array(b.reshape(1, -1), name=f"b{i}"))
 
@@ -106,8 +108,8 @@ def _export_mlp_onnx(hidden_dims, weights_npz_path, onnx_path):
 
     graph = helper.make_graph(
         nodes, "mlp", initializer=initializers,
-        inputs=[helper.make_tensor_value_info("input", TensorProto.FLOAT16, [1, IN_DIM])],
-        outputs=[helper.make_tensor_value_info("output", TensorProto.FLOAT16, [1, OUT_DIM])],
+        inputs=[helper.make_tensor_value_info("input", onnx_dtype, [batch_size, IN_DIM])],
+        outputs=[helper.make_tensor_value_info("output", onnx_dtype, [batch_size, OUT_DIM])],
     )
     model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)])
     model.ir_version = 8
@@ -115,11 +117,14 @@ def _export_mlp_onnx(hidden_dims, weights_npz_path, onnx_path):
     onnx.save(model, onnx_path)
 
 
-def _export_cnn_onnx(conv_config, mlp_head_dims, weights_npz_path, onnx_path):
+def _export_cnn_onnx(conv_config, mlp_head_dims, weights_npz_path, onnx_path, use_fp16=True, batch_size=1):
     """Generate ONNX for a 1D-CNN."""
     import onnx
     from onnx import helper, TensorProto, numpy_helper
     from models import IN_DIM, OUT_DIM, SEQ_LEN
+
+    np_dtype = np.float16 if use_fp16 else np.float32
+    onnx_dtype = TensorProto.FLOAT16 if use_fp16 else TensorProto.FLOAT
 
     data = np.load(weights_npz_path)
     n_conv = int(data["n_conv_layers"])
@@ -127,8 +132,8 @@ def _export_cnn_onnx(conv_config, mlp_head_dims, weights_npz_path, onnx_path):
 
     nodes, initializers = [], []
 
-    # Reshape (1,C,L) → (1,C,L,1) for Conv2d
-    shape_4d = numpy_helper.from_array(np.array([1, IN_DIM, SEQ_LEN, 1], dtype=np.int64), name="shape_4d")
+    # Reshape (batch,C,L) → (batch,C,L,1) for Conv2d
+    shape_4d = numpy_helper.from_array(np.array([batch_size, IN_DIM, SEQ_LEN, 1], dtype=np.int64), name="shape_4d")
     initializers.append(shape_4d)
     nodes.append(helper.make_node("Reshape", ["input", "shape_4d"], ["x_4d"]))
     prev = "x_4d"
@@ -139,8 +144,8 @@ def _export_cnn_onnx(conv_config, mlp_head_dims, weights_npz_path, onnx_path):
     for i in range(n_conv):
         w_raw = data[f"conv_w{i}"]
         out_ch, _, ks = w_raw.shape
-        w = np.ascontiguousarray(w_raw.astype(np.float16).reshape(out_ch, -1, ks, 1))
-        b = data[f"conv_b{i}"].astype(np.float16)
+        w = np.ascontiguousarray(w_raw.astype(np_dtype).reshape(out_ch, -1, ks, 1))
+        b = data[f"conv_b{i}"].astype(np_dtype)
         initializers.append(numpy_helper.from_array(w, name=f"cw{i}"))
         initializers.append(numpy_helper.from_array(b, name=f"cb{i}"))
         cout = f"c{i}"
@@ -151,16 +156,16 @@ def _export_cnn_onnx(conv_config, mlp_head_dims, weights_npz_path, onnx_path):
         seq = seq - ks + 1  # valid conv, stride=1
         in_ch = out_ch
 
-    # Flatten: (1, C, L, 1) → (1, C*L)
+    # Flatten: (batch_size, C, L, 1) → (batch_size, C*L)
     flat_size = in_ch * seq
-    shape_flat = numpy_helper.from_array(np.array([1, flat_size], dtype=np.int64), name="shape_flat")
+    shape_flat = numpy_helper.from_array(np.array([batch_size, flat_size], dtype=np.int64), name="shape_flat")
     initializers.append(shape_flat)
     nodes.append(helper.make_node("Reshape", [prev, "shape_flat"], ["flat"]))
 
     prev = "flat"
     for i in range(n_fc):
-        w = np.ascontiguousarray(data[f"fc_w{i}"].astype(np.float16).T)
-        b = data[f"fc_b{i}"].astype(np.float16).reshape(1, -1)
+        w = np.ascontiguousarray(data[f"fc_w{i}"].astype(np_dtype).T)
+        b = data[f"fc_b{i}"].astype(np_dtype).reshape(1, -1)
         initializers.append(numpy_helper.from_array(w, name=f"fw{i}"))
         initializers.append(numpy_helper.from_array(b, name=f"fb{i}"))
         mm = f"fm{i}"
@@ -176,8 +181,8 @@ def _export_cnn_onnx(conv_config, mlp_head_dims, weights_npz_path, onnx_path):
 
     graph = helper.make_graph(
         nodes, "cnn", initializer=initializers,
-        inputs=[helper.make_tensor_value_info("input", TensorProto.FLOAT16, [1, IN_DIM, SEQ_LEN])],
-        outputs=[helper.make_tensor_value_info("output", TensorProto.FLOAT16, [1, OUT_DIM])],
+        inputs=[helper.make_tensor_value_info("input", onnx_dtype, [batch_size, IN_DIM, SEQ_LEN])],
+        outputs=[helper.make_tensor_value_info("output", onnx_dtype, [batch_size, OUT_DIM])],
     )
     model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)])
     model.ir_version = 8
@@ -185,11 +190,14 @@ def _export_cnn_onnx(conv_config, mlp_head_dims, weights_npz_path, onnx_path):
     onnx.save(model, onnx_path)
 
 
-def _export_hybrid_onnx(conv_config, mlp_head_dims, weights_npz_path, onnx_path):
+def _export_hybrid_onnx(conv_config, mlp_head_dims, weights_npz_path, onnx_path, use_fp16=True, batch_size=1):
     """Generate ONNX for a hybrid CNN+MLP."""
     import onnx
     from onnx import helper, TensorProto, numpy_helper
     from models import IN_DIM, OUT_DIM, SEQ_LEN
+
+    np_dtype = np.float16 if use_fp16 else np.float32
+    onnx_dtype = TensorProto.FLOAT16 if use_fp16 else TensorProto.FLOAT
 
     data = np.load(weights_npz_path)
     n_conv = int(data["n_conv_layers"])
@@ -197,8 +205,8 @@ def _export_hybrid_onnx(conv_config, mlp_head_dims, weights_npz_path, onnx_path)
 
     nodes, initializers = [], []
 
-    # Reshape (1,C,L) → (1,C,L,1) for Conv2d
-    shape_4d = numpy_helper.from_array(np.array([1, IN_DIM, SEQ_LEN, 1], dtype=np.int64), name="shape_4d")
+    # Reshape (batch,C,L) → (batch,C,L,1) for Conv2d
+    shape_4d = numpy_helper.from_array(np.array([batch_size, IN_DIM, SEQ_LEN, 1], dtype=np.int64), name="shape_4d")
     initializers.append(shape_4d)
     nodes.append(helper.make_node("Reshape", ["imu_window", "shape_4d"], ["x_4d"]))
     prev = "x_4d"
@@ -209,8 +217,8 @@ def _export_hybrid_onnx(conv_config, mlp_head_dims, weights_npz_path, onnx_path)
     for i in range(n_conv):
         w_raw = data[f"conv_w{i}"]
         out_ch, _, ks = w_raw.shape
-        w = np.ascontiguousarray(w_raw.astype(np.float16).reshape(out_ch, -1, ks, 1))
-        b = data[f"conv_b{i}"].astype(np.float16)
+        w = np.ascontiguousarray(w_raw.astype(np_dtype).reshape(out_ch, -1, ks, 1))
+        b = data[f"conv_b{i}"].astype(np_dtype)
         initializers.append(numpy_helper.from_array(w, name=f"cw{i}"))
         initializers.append(numpy_helper.from_array(b, name=f"cb{i}"))
         cout = f"c{i}"
@@ -222,7 +230,7 @@ def _export_hybrid_onnx(conv_config, mlp_head_dims, weights_npz_path, onnx_path)
         in_ch = out_ch
 
     # Reshape to 3D then ReduceMean for global avg pool
-    shape_3d = numpy_helper.from_array(np.array([1, in_ch, seq], dtype=np.int64), name="shape_3d")
+    shape_3d = numpy_helper.from_array(np.array([batch_size, in_ch, seq], dtype=np.int64), name="shape_3d")
     initializers.append(shape_3d)
     nodes.append(helper.make_node("Reshape", [prev, "shape_3d"], ["x_3d"]))
     # Global average pool: mean over axis 2 (time dimension)
@@ -231,8 +239,8 @@ def _export_hybrid_onnx(conv_config, mlp_head_dims, weights_npz_path, onnx_path)
 
     prev = "fused"
     for i in range(n_fc):
-        w = np.ascontiguousarray(data[f"fc_w{i}"].astype(np.float16).T)
-        b = data[f"fc_b{i}"].astype(np.float16).reshape(1, -1)
+        w = np.ascontiguousarray(data[f"fc_w{i}"].astype(np_dtype).T)
+        b = data[f"fc_b{i}"].astype(np_dtype).reshape(1, -1)
         initializers.append(numpy_helper.from_array(w, name=f"fw{i}"))
         initializers.append(numpy_helper.from_array(b, name=f"fb{i}"))
         mm = f"fm{i}"
@@ -249,10 +257,10 @@ def _export_hybrid_onnx(conv_config, mlp_head_dims, weights_npz_path, onnx_path)
     graph = helper.make_graph(
         nodes, "hybrid", initializer=initializers,
         inputs=[
-            helper.make_tensor_value_info("imu_window", TensorProto.FLOAT16, [1, IN_DIM, SEQ_LEN]),
-            helper.make_tensor_value_info("current_state", TensorProto.FLOAT16, [1, IN_DIM]),
+            helper.make_tensor_value_info("imu_window", onnx_dtype, [batch_size, IN_DIM, SEQ_LEN]),
+            helper.make_tensor_value_info("current_state", onnx_dtype, [batch_size, IN_DIM]),
         ],
-        outputs=[helper.make_tensor_value_info("output", TensorProto.FLOAT16, [1, OUT_DIM])],
+        outputs=[helper.make_tensor_value_info("output", onnx_dtype, [batch_size, OUT_DIM])],
     )
     model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)])
     model.ir_version = 8
@@ -264,10 +272,16 @@ def _export_hybrid_onnx(conv_config, mlp_head_dims, weights_npz_path, onnx_path)
 # trtexec engine build + benchmark
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def _build_engine(onnx_path, engine_path):
-    """Build TensorRT FP16 engine from ONNX."""
+def _build_engine(onnx_path, engine_path, use_fp16=True, use_tf32=False):
+    """Build TensorRT engine from ONNX."""
     trtexec = _find_trtexec()
-    cmd = [trtexec, f"--onnx={onnx_path}", f"--saveEngine={engine_path}", "--fp16"]
+    cmd = [trtexec, f"--onnx={onnx_path}", f"--saveEngine={engine_path}"]
+    if use_fp16:
+        cmd.append("--fp16")
+    elif not use_tf32:
+        # Pure FP32: disable TF32 tensor cores
+        cmd.append("--noTF32")
+    # TF32: default FP32 mode already uses TF32 tensor cores
     print(f"  Building engine: {Path(onnx_path).name} → {Path(engine_path).name}")
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=300, env=_trtexec_env())
     if result.returncode != 0:
@@ -277,7 +291,7 @@ def _build_engine(onnx_path, engine_path):
     print(f"  Engine built.")
 
 
-def _bench_engine(engine_path, warmup_ms=500, n_iters=10000, input_shapes=None, with_transfers=False):
+def _bench_engine(engine_path, warmup_ms=500, n_iters=10000, input_shapes=None, with_transfers=False, use_fp16=True, use_tf32=False):
     """Benchmark using trtexec. Returns dict of stats in µs."""
     trtexec = _find_trtexec()
     cmd = [
@@ -286,8 +300,13 @@ def _bench_engine(engine_path, warmup_ms=500, n_iters=10000, input_shapes=None, 
         f"--warmUp={warmup_ms}",
         f"--iterations={n_iters}",
         "--useSpinWait",
-        "--fp16",
     ]
+    if use_fp16:
+        cmd.append("--fp16")
+    elif not use_tf32:
+        # Pure FP32: disable TF32 tensor cores
+        cmd.append("--noTF32")
+    # TF32: default FP32 mode already uses TF32 tensor cores
     if not with_transfers:
         cmd.append("--noDataTransfers")
     if input_shapes:
@@ -375,26 +394,28 @@ def _ensure_dirs(weights_path):
     return onnx_dir, engine_dir
 
 
-def bench_trt_mlp(name, hidden_dims, weights_path, warmup=50, n_iters=10000):
+def bench_trt_mlp(name, hidden_dims, weights_path, warmup=50, n_iters=10000, use_fp16=True, use_tf32=False, batch_size=1):
     """Benchmark MLP in TensorRT. Returns (times_us_list, None)."""
+    prec = "tf32" if use_tf32 else ("fp16" if use_fp16 else "fp32")
+    bs_tag = f"_b{batch_size}" if batch_size != 1 else ""
     onnx_dir, engine_dir = _ensure_dirs(weights_path)
-    onnx_path = str(onnx_dir / f"{name}.onnx")
-    engine_path = str(engine_dir / f"{name}.engine")
+    onnx_path = str(onnx_dir / f"{name}_{prec}{bs_tag}.onnx")
+    engine_path = str(engine_dir / f"{name}_{prec}{bs_tag}.engine")
 
-    _export_mlp_onnx(hidden_dims, weights_path, onnx_path)
+    _export_mlp_onnx(hidden_dims, weights_path, onnx_path, use_fp16=use_fp16, batch_size=batch_size)
     if not os.path.exists(engine_path):
-        _build_engine(onnx_path, engine_path)
+        _build_engine(onnx_path, engine_path, use_fp16=use_fp16, use_tf32=use_tf32)
     else:
         print(f"  Using cached engine: {Path(engine_path).name}")
 
     # GPU-resident benchmark (best case for TensorRT)
     print(f"  trtexec GPU-resident ({n_iters} iters)...")
-    gpu_stats = _bench_engine(engine_path, n_iters=n_iters)
+    gpu_stats = _bench_engine(engine_path, n_iters=n_iters, use_fp16=use_fp16, use_tf32=use_tf32)
     _print_trt_stats("GPU-resident", gpu_stats)
 
     # With data transfers (fair comparison with NV=1)
     print(f"  trtexec with H2D/D2H ({n_iters} iters)...")
-    full_stats = _bench_engine(engine_path, n_iters=n_iters, with_transfers=True)
+    full_stats = _bench_engine(engine_path, n_iters=n_iters, with_transfers=True, use_fp16=use_fp16, use_tf32=use_tf32)
     _print_trt_stats("With transfers", full_stats)
 
     # Use the with-transfers number for comparison (fair to NV=1)
@@ -402,50 +423,54 @@ def bench_trt_mlp(name, hidden_dims, weights_path, warmup=50, n_iters=10000):
     return times, None
 
 
-def bench_trt_cnn(name, conv_config, mlp_head_dims, weights_path, warmup=50, n_iters=10000):
+def bench_trt_cnn(name, conv_config, mlp_head_dims, weights_path, warmup=50, n_iters=10000, use_fp16=True, use_tf32=False, batch_size=1):
     """Benchmark 1D-CNN in TensorRT."""
     from models import IN_DIM, SEQ_LEN
+    prec = "tf32" if use_tf32 else ("fp16" if use_fp16 else "fp32")
+    bs_tag = f"_b{batch_size}" if batch_size != 1 else ""
     onnx_dir, engine_dir = _ensure_dirs(weights_path)
-    onnx_path = str(onnx_dir / f"{name}.onnx")
-    engine_path = str(engine_dir / f"{name}.engine")
+    onnx_path = str(onnx_dir / f"{name}_{prec}{bs_tag}.onnx")
+    engine_path = str(engine_dir / f"{name}_{prec}{bs_tag}.engine")
 
-    _export_cnn_onnx(conv_config, mlp_head_dims, weights_path, onnx_path)
+    _export_cnn_onnx(conv_config, mlp_head_dims, weights_path, onnx_path, use_fp16=use_fp16, batch_size=batch_size)
     if not os.path.exists(engine_path):
-        _build_engine(onnx_path, engine_path)
+        _build_engine(onnx_path, engine_path, use_fp16=use_fp16, use_tf32=use_tf32)
     else:
         print(f"  Using cached engine: {Path(engine_path).name}")
 
-    shapes = {"input": [1, IN_DIM, SEQ_LEN]}
+    shapes = {"input": [batch_size, IN_DIM, SEQ_LEN]}
     print(f"  trtexec GPU-resident ({n_iters} iters)...")
-    gpu_stats = _bench_engine(engine_path, n_iters=n_iters, input_shapes=shapes)
+    gpu_stats = _bench_engine(engine_path, n_iters=n_iters, input_shapes=shapes, use_fp16=use_fp16, use_tf32=use_tf32)
     _print_trt_stats("GPU-resident", gpu_stats)
     print(f"  trtexec with H2D/D2H ({n_iters} iters)...")
-    full_stats = _bench_engine(engine_path, n_iters=n_iters, input_shapes=shapes, with_transfers=True)
+    full_stats = _bench_engine(engine_path, n_iters=n_iters, input_shapes=shapes, with_transfers=True, use_fp16=use_fp16, use_tf32=use_tf32)
     _print_trt_stats("With transfers", full_stats)
 
     times = _stats_to_times(full_stats, n_iters)
     return times, None
 
 
-def bench_trt_hybrid(name, conv_config, mlp_head_dims, weights_path, warmup=50, n_iters=10000):
+def bench_trt_hybrid(name, conv_config, mlp_head_dims, weights_path, warmup=50, n_iters=10000, use_fp16=True, use_tf32=False, batch_size=1):
     """Benchmark hybrid CNN+MLP in TensorRT."""
     from models import IN_DIM, SEQ_LEN
+    prec = "tf32" if use_tf32 else ("fp16" if use_fp16 else "fp32")
+    bs_tag = f"_b{batch_size}" if batch_size != 1 else ""
     onnx_dir, engine_dir = _ensure_dirs(weights_path)
-    onnx_path = str(onnx_dir / f"{name}.onnx")
-    engine_path = str(engine_dir / f"{name}.engine")
+    onnx_path = str(onnx_dir / f"{name}_{prec}{bs_tag}.onnx")
+    engine_path = str(engine_dir / f"{name}_{prec}{bs_tag}.engine")
 
-    _export_hybrid_onnx(conv_config, mlp_head_dims, weights_path, onnx_path)
+    _export_hybrid_onnx(conv_config, mlp_head_dims, weights_path, onnx_path, use_fp16=use_fp16, batch_size=batch_size)
     if not os.path.exists(engine_path):
-        _build_engine(onnx_path, engine_path)
+        _build_engine(onnx_path, engine_path, use_fp16=use_fp16, use_tf32=use_tf32)
     else:
         print(f"  Using cached engine: {Path(engine_path).name}")
 
     # Shapes are baked into the engine (static), no --shapes needed at runtime
     print(f"  trtexec GPU-resident ({n_iters} iters)...")
-    gpu_stats = _bench_engine(engine_path, n_iters=n_iters)
+    gpu_stats = _bench_engine(engine_path, n_iters=n_iters, use_fp16=use_fp16, use_tf32=use_tf32)
     _print_trt_stats("GPU-resident", gpu_stats)
     print(f"  trtexec with H2D/D2H ({n_iters} iters)...")
-    full_stats = _bench_engine(engine_path, n_iters=n_iters, with_transfers=True)
+    full_stats = _bench_engine(engine_path, n_iters=n_iters, with_transfers=True, use_fp16=use_fp16, use_tf32=use_tf32)
     _print_trt_stats("With transfers", full_stats)
 
     times = _stats_to_times(full_stats, n_iters)

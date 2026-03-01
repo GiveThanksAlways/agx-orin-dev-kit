@@ -41,19 +41,21 @@ def _stats(times):
 # MLP benchmark
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def bench_nv_mlp(name, hidden_dims, seed=42, warmup=50, n_iters=10000):
+def bench_nv_mlp(name, hidden_dims, seed=42, warmup=50, n_iters=10000, use_fp16=True, batch_size=1):
     """Benchmark an MLP on tinygrad NV=1 using direct memory access (Approach C).
 
     Returns (times_us_list, params_count).
     """
     from models import IN_DIM, OUT_DIM, build_tinygrad_mlp
 
+    np_dtype = np.float16 if use_fp16 else np.float32
+    tg_dtype = dtypes.float16 if use_fp16 else dtypes.float32
     dev = Device["NV"]
-    model, params = build_tinygrad_mlp(hidden_dims, seed=seed)
+    model, params = build_tinygrad_mlp(hidden_dims, seed=seed, use_fp16=use_fp16, batch_size=batch_size)
 
     # Static input/output tensors for direct memory access
-    static_x = Tensor.zeros(1, IN_DIM, dtype=dtypes.float16).contiguous().realize()
-    static_out = Tensor.zeros(1, OUT_DIM, dtype=dtypes.float16).contiguous().realize()
+    static_x = Tensor.zeros(batch_size, IN_DIM, dtype=tg_dtype).contiguous().realize()
+    static_out = Tensor.zeros(batch_size, OUT_DIM, dtype=tg_dtype).contiguous().realize()
     dev.synchronize()
 
     in_addr, in_nbytes = _setup_direct_memory(static_x)
@@ -65,7 +67,7 @@ def bench_nv_mlp(name, hidden_dims, seed=42, warmup=50, n_iters=10000):
 
     # Pre-generate test data
     rng = np.random.RandomState(99)
-    data_pool = rng.randn(warmup + n_iters + 10, 1, IN_DIM).astype(np.float16)
+    data_pool = rng.randn(warmup + n_iters + 10, batch_size, IN_DIM).astype(np_dtype)
 
     # Warmup (JIT captures on 2nd call, graph on 3rd)
     for i in range(warmup):
@@ -78,7 +80,7 @@ def bench_nv_mlp(name, hidden_dims, seed=42, warmup=50, n_iters=10000):
     ctypes.memmove(in_addr, test_in.ctypes.data, in_nbytes)
     run()
     dev.synchronize()
-    result = np.empty((1, OUT_DIM), dtype=np.float16)
+    result = np.empty((batch_size, OUT_DIM), dtype=np_dtype)
     ctypes.memmove(result.ctypes.data, out_addr, out_nbytes)
 
     # Benchmark
@@ -100,16 +102,18 @@ def bench_nv_mlp(name, hidden_dims, seed=42, warmup=50, n_iters=10000):
 # CNN benchmark
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def bench_nv_cnn(name, conv_config, mlp_head_dims, seed=42, warmup=50, n_iters=10000):
+def bench_nv_cnn(name, conv_config, mlp_head_dims, seed=42, warmup=50, n_iters=10000, use_fp16=True, batch_size=1):
     """Benchmark a 1D-CNN on tinygrad NV=1 using direct memory access."""
     from models import IN_DIM, OUT_DIM, SEQ_LEN, build_tinygrad_cnn
 
+    np_dtype = np.float16 if use_fp16 else np.float32
+    tg_dtype = dtypes.float16 if use_fp16 else dtypes.float32
     dev = Device["NV"]
-    model, params = build_tinygrad_cnn(conv_config, mlp_head_dims, seed=seed)
+    model, params = build_tinygrad_cnn(conv_config, mlp_head_dims, seed=seed, use_fp16=use_fp16, batch_size=batch_size)
 
-    # Static buffers: input is (1, IN_DIM, SEQ_LEN)
-    static_x = Tensor.zeros(1, IN_DIM, SEQ_LEN, dtype=dtypes.float16).contiguous().realize()
-    static_out = Tensor.zeros(1, OUT_DIM, dtype=dtypes.float16).contiguous().realize()
+    # Static buffers: input is (batch_size, IN_DIM, SEQ_LEN)
+    static_x = Tensor.zeros(batch_size, IN_DIM, SEQ_LEN, dtype=tg_dtype).contiguous().realize()
+    static_out = Tensor.zeros(batch_size, OUT_DIM, dtype=tg_dtype).contiguous().realize()
     dev.synchronize()
 
     in_addr, in_nbytes = _setup_direct_memory(static_x)
@@ -120,14 +124,14 @@ def bench_nv_cnn(name, conv_config, mlp_head_dims, seed=42, warmup=50, n_iters=1
         static_out.assign(model(static_x)).realize()
 
     rng = np.random.RandomState(99)
-    data_pool = rng.randn(warmup + n_iters + 10, 1, IN_DIM, SEQ_LEN).astype(np.float16)
+    data_pool = rng.randn(warmup + n_iters + 10, batch_size, IN_DIM, SEQ_LEN).astype(np_dtype)
 
     for i in range(warmup):
         ctypes.memmove(in_addr, data_pool[i].ctypes.data, in_nbytes)
         run()
         dev.synchronize()
 
-    result = np.empty((1, OUT_DIM), dtype=np.float16)
+    result = np.empty((batch_size, OUT_DIM), dtype=np_dtype)
 
     times = []
     for i in range(n_iters):
@@ -147,20 +151,22 @@ def bench_nv_cnn(name, conv_config, mlp_head_dims, seed=42, warmup=50, n_iters=1
 # Hybrid CNN+MLP benchmark
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def bench_nv_hybrid(name, conv_config, mlp_head_dims, seed=42, warmup=50, n_iters=10000):
+def bench_nv_hybrid(name, conv_config, mlp_head_dims, seed=42, warmup=50, n_iters=10000, use_fp16=True, batch_size=1):
     """Benchmark a hybrid CNN+MLP on tinygrad NV=1 using direct memory access.
 
     Two static inputs: imu_window (temporal) + current_state (instantaneous).
     """
     from models import IN_DIM, OUT_DIM, SEQ_LEN, build_tinygrad_hybrid
 
+    np_dtype = np.float16 if use_fp16 else np.float32
+    tg_dtype = dtypes.float16 if use_fp16 else dtypes.float32
     dev = Device["NV"]
-    model, params = build_tinygrad_hybrid(conv_config, mlp_head_dims, seed=seed)
+    model, params = build_tinygrad_hybrid(conv_config, mlp_head_dims, seed=seed, use_fp16=use_fp16, batch_size=batch_size)
 
     # Two inputs
-    static_imu = Tensor.zeros(1, IN_DIM, SEQ_LEN, dtype=dtypes.float16).contiguous().realize()
-    static_state = Tensor.zeros(1, IN_DIM, dtype=dtypes.float16).contiguous().realize()
-    static_out = Tensor.zeros(1, OUT_DIM, dtype=dtypes.float16).contiguous().realize()
+    static_imu = Tensor.zeros(batch_size, IN_DIM, SEQ_LEN, dtype=tg_dtype).contiguous().realize()
+    static_state = Tensor.zeros(batch_size, IN_DIM, dtype=tg_dtype).contiguous().realize()
+    static_out = Tensor.zeros(batch_size, OUT_DIM, dtype=tg_dtype).contiguous().realize()
     dev.synchronize()
 
     imu_addr, imu_nbytes = _setup_direct_memory(static_imu)
@@ -172,8 +178,8 @@ def bench_nv_hybrid(name, conv_config, mlp_head_dims, seed=42, warmup=50, n_iter
         static_out.assign(model(static_imu, static_state)).realize()
 
     rng = np.random.RandomState(99)
-    imu_pool = rng.randn(warmup + n_iters + 10, 1, IN_DIM, SEQ_LEN).astype(np.float16)
-    state_pool = rng.randn(warmup + n_iters + 10, 1, IN_DIM).astype(np.float16)
+    imu_pool = rng.randn(warmup + n_iters + 10, batch_size, IN_DIM, SEQ_LEN).astype(np_dtype)
+    state_pool = rng.randn(warmup + n_iters + 10, batch_size, IN_DIM).astype(np_dtype)
 
     for i in range(warmup):
         ctypes.memmove(imu_addr, imu_pool[i].ctypes.data, imu_nbytes)
@@ -181,7 +187,7 @@ def bench_nv_hybrid(name, conv_config, mlp_head_dims, seed=42, warmup=50, n_iter
         run()
         dev.synchronize()
 
-    result = np.empty((1, OUT_DIM), dtype=np.float16)
+    result = np.empty((batch_size, OUT_DIM), dtype=np_dtype)
 
     times = []
     for i in range(n_iters):
