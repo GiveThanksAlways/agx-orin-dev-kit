@@ -2,17 +2,27 @@
   description = "Tinygrad dev shell for Jetson Orin AGX (CUDA + NV backends)";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
-    jetpack-nixos.url = "github:anduril/jetpack-nixos";
+    # Follow control-loop's nixpkgs + jetpack-nixos so that torch (built from
+    # source with CUDA) is already in the nix store — zero rebuild time.
+    control-loop.url = "path:../control-loop";
+    nixpkgs.follows = "control-loop/nixpkgs";
+    jetpack-nixos.follows = "control-loop/jetpack-nixos";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, jetpack-nixos, flake-utils }:
+  outputs = { self, nixpkgs, jetpack-nixos, flake-utils, control-loop }:
     flake-utils.lib.eachSystem [ "aarch64-linux" ] (system:
       let
         pkgs = import nixpkgs {
           inherit system;
-          config.allowUnfree = true;
+          config = {
+            allowUnfree = true;
+            # Must match control-loop's config exactly so torch's derivation hash
+            # is identical — Nix reuses the cached build instead of rebuilding.
+            cudaSupport = true;
+            cudaCapabilities = [ "8.7" ];
+            cudaForwardCompat = false;
+          };
           overlays = [
             jetpack-nixos.overlays.default
             # jetpack-nixos defaults cudaPackages to CUDA 11.4 for broad compatibility.
@@ -24,44 +34,6 @@
         };
         jetpack = pkgs.nvidia-jetpack6;
         cuda = jetpack.cudaPackages;
-
-        # Pre-built PyTorch CPU wheel from PyTorch's official aarch64 builds.
-        # This avoids the 1-4 hour source build that ps.torch triggers.
-        # CPU-only is fine — torch is only used as a reference implementation
-        # for correctness comparison in tinygrad's test suite (test_ops.py, test_nn.py).
-        torch-bin = pkgs.python3Packages.buildPythonPackage {
-          pname = "torch";
-          version = "2.9.1+cpu";
-          format = "wheel";
-
-          src = pkgs.fetchurl {
-            name = "torch-2.9.1-cp313-cp313-linux_aarch64.whl";
-            url = "https://download.pytorch.org/whl/cpu/torch-2.9.1%2Bcpu-cp313-cp313-manylinux_2_28_aarch64.whl";
-            hash = "sha256-PlMuVTs37oWSBamy0ceXf9aSL1O7sbm/3VvcANGmDtQ=";
-          };
-
-          nativeBuildInputs = [
-            pkgs.autoPatchelfHook
-          ];
-
-          buildInputs = [
-            pkgs.stdenv.cc.cc.lib  # libstdc++.so
-            pkgs.zlib              # libz.so.1
-          ];
-
-          dependencies = with pkgs.python3Packages; [
-            filelock
-            typing-extensions
-            setuptools
-            sympy
-            networkx
-            jinja2
-            fsspec
-          ];
-
-          pythonImportsCheck = [ "torch" ];
-          doCheck = false;
-        };
 
         # Combined CUDA root directory that tinygrad's CUDA_PATH can point to.
         # compiler_cuda.py does: -I{CUDA_PATH}/include  → needs include/ subdir
@@ -75,8 +47,9 @@
           ln -s ${jetpack.l4t-cuda}/lib/libcuda.so.1.1 $out/libcuda.so.1.1
         '';
 
-        pythonEnv = pkgs.python3.withPackages (ps: [
-          torch-bin
+        # python312 to match control-loop (same torch derivation hash = cached)
+        pythonEnv = pkgs.python312.withPackages (ps: [
+          ps.torch        # CUDA-enabled torch (same as control-loop, already built)
           ps.numpy
           ps.tqdm
           ps.requests
