@@ -1,3 +1,6 @@
 [submodule "tinygrad"]
 	path = external/tinygrad
 	url = git@github.com:GiveThanksAlways/tinygrad.git
+[submodule "external/learned_inertial_model_odometry"]
+	path = external/learned_inertial_model_odometry
+	url = git@github.com:GiveThanksAlways/learned_inertial_model_odometry.git
