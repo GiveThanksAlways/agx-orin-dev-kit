@@ -17,3 +17,7 @@ examples/presentation/jetson-trt/
 examples/presentation/results.json
 *.engine
 *.deb
+onnx/
+logs/
+*.onnx
+.direnv/

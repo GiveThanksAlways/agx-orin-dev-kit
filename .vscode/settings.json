@@ -18,5 +18,20 @@
         "titleBar.inactiveBackground": "#21496699",
         "titleBar.inactiveForeground": "#e7e7e799"
     },
-    "peacock.remoteColor": "#214966"
+    "peacock.remoteColor": "#214966",
+
+    // ── Nix Env Selector: auto-activate the learned-inertial-odometry flake ──
+    // Root flake.nix re-exports examples/learned-inertial-odometry devShell.
+    // After enabling, run:  Ctrl+Shift+P → "Nix-Env: Select Environment"
+    "nixEnvSelector.nixFile": "${workspaceFolder}/flake.nix",
+
+    // Point VS Code at the nix Python so it stops defaulting to .venv
+    "python.defaultInterpreterPath": "/nix/store/n4nx3ql7nmg4nrvv4mgzan1kx2pvz94z-python3-3.12.12-env/bin/python3",
+
+    // Don't let VS Code auto-activate nested .venv (e.g. examples/MLC-LLM/.venv)
+    "python.terminal.activateEnvironment": false,
+    "python.venvFolders": [],
+
+    // Env vars captured from nix develop (CUDA, LD_LIBRARY_PATH, PYTHONPATH, etc.)
+    "python.envFile": "${workspaceFolder}/.env.nix"
 }
