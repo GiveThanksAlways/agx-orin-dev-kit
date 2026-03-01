@@ -721,6 +721,10 @@ def main():
                     "imu_propagation": compute_stats(r["times_imu"]),
                     "tcn_inference": compute_stats(r["times_tcn"]),
                     "ekf_update": compute_stats(r["times_ekf"]),
+                    "raw_total": [float(x) for x in r["times_total"]],
+                    "raw_tcn": [float(x) for x in r["times_tcn"]],
+                    "raw_imu": [float(x) for x in r["times_imu"]],
+                    "raw_ekf": [float(x) for x in r["times_ekf"]],
                 }
                 for name, r in all_results.items()
             },
