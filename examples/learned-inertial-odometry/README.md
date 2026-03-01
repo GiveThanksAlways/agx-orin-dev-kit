@@ -112,7 +112,7 @@ git submodule update --init --recursive
 
 The `bench_e2e_pipeline.py` reproduces the complete system from the paper:
 
-```
+```text
 IMU data (gyro ω_b, accel a_b, thrust T_b)
   │
   ├──▶ IMU Propagation (5× per update @ 100 Hz)
@@ -133,6 +133,7 @@ IMU data (gyro ω_b, accel a_b, thrust T_b)
 ```
 
 Per update cycle at 20 Hz (50,000 µs budget):
+
 - **IMU propagation**: 5 steps of SO(3) integration + Jacobian + covariance
 - **TCN inference**: the neural network forward pass (the bottleneck we're benchmarking)
 - **EKF update**: Kalman gain computation + state correction + marginalization
@@ -141,4 +142,3 @@ Per update cycle at 20 Hz (50,000 µs budget):
 
 - **Simulated** (`--data sim`): Gentle hovering flight with realistic IMU noise
 - **Real Blackbird** (`--data real`): Actual drone flight data from the paper's test split (included in the repo at `datasets/Blackbird/`)
-

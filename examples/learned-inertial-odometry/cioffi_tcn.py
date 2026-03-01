@@ -210,6 +210,7 @@ def export_onnx(onnx_path, weights=None, use_fp16=False):
         output_names=["displacement"],
         dynamic_axes=None,  # fixed batch=1 for inference benchmarking
         opset_version=17,
+        dynamo=False,  # use legacy tracer (no onnxscript dependency)
     )
     print(f"  Exported ONNX: {onnx_path} ({param_count:,} params)")
     return param_count
@@ -252,11 +253,13 @@ def build_tinygrad_tcn(weights=None, use_fp16=True):
         def __call__(self, x):
             # Conv1d with causal padding + chomp
             p = self.padding
-            out = x.pad((p, 0), mode="constant", constant_value=0)
+            # Causal pad on sequence dim (dim 2) for 4D tensor (N, C, seq, 1)
+            # PyTorch-style flat padding: (W_left, W_right, H_left, H_right)
+            out = x.pad((0, 0, p, 0))
             out = out.conv2d(self.conv1_w.unsqueeze(3), self.conv1_b, dilation=(self.dilation, 1))
             out = out.gelu()
 
-            out = out.pad((p, 0), mode="constant", constant_value=0)
+            out = out.pad((0, 0, p, 0))
             out = out.conv2d(self.conv2_w.unsqueeze(3), self.conv2_b, dilation=(self.dilation, 1))
             out = out.gelu()
 

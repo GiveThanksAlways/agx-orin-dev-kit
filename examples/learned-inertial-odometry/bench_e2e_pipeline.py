@@ -363,9 +363,8 @@ class PyTorchCUDABackend:
         self.np_dtype = np.float16 if use_fp16 else np.float32
         self.torch_dtype = torch.float16 if use_fp16 else torch.float32
 
-        model = build_pytorch_tcn(weights, use_fp16=use_fp16)
+        model, self.param_count = build_pytorch_tcn(weights, use_fp16=use_fp16)
         self.model = model.to(self.device).eval()
-        self.param_count = sum(p.numel() for p in self.model.parameters())
 
         # Pre-allocate CUDA tensors for CUDA Graphs
         self.static_input = torch.zeros(
@@ -387,7 +386,7 @@ class PyTorchCUDABackend:
 
         # Capture CUDA Graph for max throughput
         self._graph = torch.cuda.CUDAGraph()
-        with torch.cuda.graph(self._graph, stream=self._stream):
+        with torch.no_grad(), torch.cuda.graph(self._graph, stream=self._stream):
             self.static_output.copy_(self.model(self.static_input))
         torch.cuda.synchronize()
 
@@ -400,7 +399,7 @@ class PyTorchCUDABackend:
         self.static_input.copy_(inp)
         self._graph.replay()
         torch.cuda.synchronize()
-        return self.static_output.cpu().numpy().flatten().astype(self.np_dtype)
+        return self.static_output.detach().cpu().numpy().flatten().astype(self.np_dtype)
 
     def sync(self):
         import torch
@@ -492,7 +491,9 @@ def run_pipeline(backend, ts, gyro, accel, thrust, n_updates, warmup_updates=10)
 
     # Initialize filter with first accel measurement
     t_us = 0
-    ekf.initialize(accel[0].reshape(3, 1), t_us)
+    ba_init = np.zeros((3, 1))
+    bg_init = np.zeros((3, 1))
+    ekf.initialize(accel[0].reshape(3, 1), t_us, ba_init, bg_init)
 
     imu_buf = IMURingBuffer(seq_len=SEQ_LEN, n_channels=INPUT_DIM)
 

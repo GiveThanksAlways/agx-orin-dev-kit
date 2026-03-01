@@ -34,6 +34,8 @@ if _cioffi_repo:
         sys.path.insert(0, _cioffi_src)
 
 try:
+    # Monkey-patch numba 0.63 + numpy 2.3 static_setitem bug BEFORE importing scekf
+    import numba_compat  # noqa: F401  (patches scekf JIT functions)
     from filter.python.src.scekf import ImuMSCKF
     from filter.python.src.utils.dotdict import dotdict
     from filter.python.src.utils.math_utils import mat_exp as _mat_exp
