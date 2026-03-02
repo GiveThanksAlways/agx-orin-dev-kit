@@ -2,62 +2,54 @@
   description = "Tinygrad dev shell for Jetson Orin AGX (CUDA + NV backends)";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
-    jetpack-nixos.url = "github:anduril/jetpack-nixos";
+    # Follow control-loop's nixpkgs + jetpack-nixos so that torch (built from
+    # source with CUDA) is already in the nix store — zero rebuild time.
+    control-loop.url = "path:../control-loop";
+    nixpkgs.follows = "control-loop/nixpkgs";
+    jetpack-nixos.follows = "control-loop/jetpack-nixos";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, jetpack-nixos, flake-utils }:
+  outputs = { self, nixpkgs, jetpack-nixos, flake-utils, control-loop }:
     flake-utils.lib.eachSystem [ "aarch64-linux" ] (system:
       let
         pkgs = import nixpkgs {
           inherit system;
-          config.allowUnfree = true;
-          overlays = [ jetpack-nixos.overlays.default ];
+          config = {
+            allowUnfree = true;
+            # Must match control-loop's config exactly so torch's derivation hash
+            # is identical — Nix reuses the cached build instead of rebuilding.
+            cudaSupport = true;
+            cudaCapabilities = [ "8.7" ];
+            cudaForwardCompat = false;
+          };
+          overlays = [
+            jetpack-nixos.overlays.default
+            # jetpack-nixos defaults cudaPackages to CUDA 11.4 for broad compatibility.
+            # Override it to JetPack 6 / CUDA 12.6 so that nixpkgs packages like torch
+            # get built against the correct CUDA version for Orin AGX.
+            # See jetpack-nixos README: "Re-using jetpack-nixos's CUDA package set".
+            (final: _: { inherit (final.nvidia-jetpack6) cudaPackages; })
+          ];
         };
         jetpack = pkgs.nvidia-jetpack6;
         cuda = jetpack.cudaPackages;
 
-        # Pre-built PyTorch CPU wheel from PyTorch's official aarch64 builds.
-        # This avoids the 1-4 hour source build that ps.torch triggers.
-        # CPU-only is fine — torch is only used as a reference implementation
-        # for correctness comparison in tinygrad's test suite (test_ops.py, test_nn.py).
-        torch-bin = pkgs.python3Packages.buildPythonPackage {
-          pname = "torch";
-          version = "2.9.1+cpu";
-          format = "wheel";
+        # Combined CUDA root directory that tinygrad's CUDA_PATH can point to.
+        # compiler_cuda.py does: -I{CUDA_PATH}/include  → needs include/ subdir
+        # DLL.findlib searches CUDA_PATH directory for libcuda.so*  → needs libcuda.so at top level
+        # This derivation creates a flat layout with both.
+        cuda-root = pkgs.runCommand "tinygrad-cuda-root" {} ''
+          mkdir -p $out
+          ln -s ${pkgs.lib.getDev cuda.cuda_cudart}/include $out/include
+          ln -s ${jetpack.l4t-cuda}/lib/libcuda.so $out/libcuda.so
+          ln -s ${jetpack.l4t-cuda}/lib/libcuda.so.1 $out/libcuda.so.1
+          ln -s ${jetpack.l4t-cuda}/lib/libcuda.so.1.1 $out/libcuda.so.1.1
+        '';
 
-          src = pkgs.fetchurl {
-            name = "torch-2.9.1-cp313-cp313-linux_aarch64.whl";
-            url = "https://download.pytorch.org/whl/cpu/torch-2.9.1%2Bcpu-cp313-cp313-manylinux_2_28_aarch64.whl";
-            hash = "sha256-PlMuVTs37oWSBamy0ceXf9aSL1O7sbm/3VvcANGmDtQ=";
-          };
-
-          nativeBuildInputs = [
-            pkgs.autoPatchelfHook
-          ];
-
-          buildInputs = [
-            pkgs.stdenv.cc.cc.lib  # libstdc++.so
-            pkgs.zlib              # libz.so.1
-          ];
-
-          dependencies = with pkgs.python3Packages; [
-            filelock
-            typing-extensions
-            setuptools
-            sympy
-            networkx
-            jinja2
-            fsspec
-          ];
-
-          pythonImportsCheck = [ "torch" ];
-          doCheck = false;
-        };
-
-        pythonEnv = pkgs.python3.withPackages (ps: [
-          torch-bin
+        # python312 to match control-loop (same torch derivation hash = cached)
+        pythonEnv = pkgs.python312.withPackages (ps: [
+          ps.torch        # CUDA-enabled torch (same as control-loop, already built)
           ps.numpy
           ps.tqdm
           ps.requests
@@ -87,8 +79,12 @@
           # See: grep -rn 'c.DLL' tinygrad/runtime/ for the full list of libraries.
           #
           # CUDA backend libs (required):
-          CUDA_PATH = "${jetpack.l4t-cuda}/lib/libcuda.so.1";
-          CUDA_INCLUDE_PATH = "${pkgs.lib.getDev cuda.cuda_cudart}/include";
+          #
+          # IMPORTANT: tinygrad's NVRTCCompiler reads CUDA_PATH and appends /include to it
+          # (tinygrad/runtime/support/compiler_cuda.py line ~47).
+          # tinygrad's DLL.findlib also searches CUDA_PATH directory for libcuda.so*.
+          # We use a merged derivation that has both include/ and lib/libcuda.so.
+          CUDA_PATH = "${cuda-root}";
           NVRTC_PATH = "${pkgs.lib.getLib cuda.cuda_nvrtc}/lib/libnvrtc.so";
           NVJITLINK_PATH = "${pkgs.lib.getLib cuda.libnvjitlink}/lib/libnvJitLink.so";
           # System libs (tinygrad loads libc via ctypes for io_uring/mmap/etc.):
@@ -113,34 +109,57 @@
           ];
 
           shellHook = ''
-            # Local-source workflow: tinygrad is imported from ./tinygrad checkout.
-            # This intentionally avoids a pinned nixpkgs tinygrad package so your
-            # local branch changes are always what Python imports.
-            if [ ! -d "$PWD/tinygrad/tinygrad" ]; then
+            # Force clang as the C/C++ compiler — tinygrad's CPU backend uses
+            # --target=aarch64-none-unknown-elf which is a clang-only flag.
+            # mkShell's stdenv sets CC=gcc, so we override here.
+            export CC="${pkgs.clang}/bin/clang"
+            export CXX="${pkgs.clang}/bin/clang++"
+
+            # Local-source workflow: tinygrad is imported from the repo's submodule at
+            # external/tinygrad/.  The submodule used to live at examples/tinygrad/tinygrad/
+            # and was moved; both locations are checked so the shell works regardless of
+            # where you run `nix develop` from.
+            #
+            # Expected usage:   cd examples/tinygrad && nix develop
+            # Also works:       nix develop examples/tinygrad# (from repo root)
+
+            if [ -d "$PWD/external/tinygrad/tinygrad" ]; then
+              # Running nix develop from the repo root
+              TINYGRAD_PATH="$PWD/external/tinygrad"
+            elif [ -d "$(realpath "$PWD/../../external/tinygrad" 2>/dev/null)/tinygrad" ]; then
+              # Running nix develop from examples/tinygrad/ (expected)
+              TINYGRAD_PATH="$(realpath "$PWD/../../external/tinygrad")"
+            elif [ -d "$PWD/tinygrad/tinygrad" ]; then
+              # Legacy: submodule still at examples/tinygrad/tinygrad/
+              TINYGRAD_PATH="$PWD/tinygrad"
+            else
               echo ""
-              echo "ERROR: local tinygrad checkout not found at: $PWD/tinygrad"
-              echo "Run this shell from examples/tinygrad and ensure submodules are present:"
+              echo "ERROR: cannot find tinygrad submodule."
+              echo "From the repo root, run:"
               echo "  git submodule update --init --recursive"
               echo ""
               return 1
             fi
 
-            export PYTHONPATH="$PWD/tinygrad:$PYTHONPATH"
-            
+            export PYTHONPATH="$TINYGRAD_PATH:$PYTHONPATH"
+
             echo ""
             echo "=== tinygrad dev shell (Orin AGX / CUDA 12.6, local source mode) ==="
-            echo "Using tinygrad from: $PWD/tinygrad"
+            echo "Using tinygrad from: $TINYGRAD_PATH"
             echo ""
             echo "Quick test (CPU):"
             echo "  python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'"
             echo ""
-            echo "Quick test (CUDA):"
-            echo "  CUDA=1 python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'"
+            echo "Quick test (NV backend — Jetson Orin):"
+            echo "  NV=1 python3 -c 'from tinygrad import Tensor; print(Tensor([1,2,3]).numpy())'"
             echo ""
-            echo "LLM examples:"
-            echo "  cd tinygrad && CUDA=1 python3 examples/gpt2.py --count 20"
+            echo "GPT-2 (auto-downloads weights):"
+            echo "  NV=1 python3 \$TINYGRAD_PATH/examples/gpt2.py --count 20"
             echo ""
-            echo "PYTHONPATH includes $PWD/tinygrad for tinygrad + extra modules."
+            echo "Radix KV-cache test (GPT-2 + multi-agent prefix reuse):"
+            echo "  NV=1 python3 test_radix_gpt2.py"
+            echo ""
+            echo "PYTHONPATH includes \$TINYGRAD_PATH for tinygrad + extra modules."
             echo ""
           '';
         };

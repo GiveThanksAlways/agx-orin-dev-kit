@@ -1,0 +1,88 @@
+{
+    // VS Code Python Debug — nix Python + env from .env.nix
+    // Breakpoints:
+    //   BP1  external/tinygrad/tinygrad/engine/realize.py:212   ei.run()
+    //   BP2  external/tinygrad/tinygrad/runtime/ops_nv.py:127   dev.gpu_mmio doorbell
+    //
+    // .env.nix is auto-loaded via settings.json python.envFile.
+    // Regenerate after flake changes:
+    //   cd examples/learned-inertial-odometry && nix develop --command env \
+    //     | grep -E '^(PYTHONPATH|LD_LIBRARY_PATH|CUDA_|NV|LIBC_|TENSOR|HOT_PATH|CC=|CXX=)' > ../../.env.nix
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Demo: TCN flow (NV=1 DEBUG=2)",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "python3",
+            "program": "${workspaceFolder}/examples/presentation/demo_learned_inertial_odometry_flow.py",
+            "cwd": "${workspaceFolder}/examples/presentation",
+            "env": {
+                "NV": "1",
+                "DEBUG": "2",
+                "BEAM": "0"
+            },
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "Demo: TCN flow (NV=1 VIZ=1 JITBEAM=2)",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "python3",
+            "program": "${workspaceFolder}/examples/presentation/demo_learned_inertial_odometry_flow.py",
+            "cwd": "${workspaceFolder}/examples/presentation",
+            "env": {
+                "NV": "1",
+                "VIZ": "1",
+                "JITBEAM": "2",
+                "DEBUG": "2"
+            },
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "Bench: TCN (NV=1 JITBEAM=2)",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "python3",
+            "program": "${workspaceFolder}/examples/learned-inertial-odometry/bench_cioffi_tcn.py",
+            "cwd": "${workspaceFolder}/examples/learned-inertial-odometry",
+            "env": {
+                "NV": "1",
+                "JITBEAM": "2"
+            },
+            "args": ["--backend", "nv"],
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "Bench: E2E Pipeline (NV=1 JITBEAM=2)",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "python3",
+            "program": "${workspaceFolder}/examples/learned-inertial-odometry/bench_e2e_pipeline.py",
+            "cwd": "${workspaceFolder}/examples/learned-inertial-odometry",
+            "env": {
+                "NV": "1",
+                "JITBEAM": "2"
+            },
+            "args": ["--backend", "nv"],
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
+            "name": "Debug current file (nix env)",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "python3",
+            "program": "${file}",
+            "cwd": "${fileDirname}",
+            "env": {
+                "NV": "1"
+            },
+            "console": "integratedTerminal",
+            "justMyCode": false
+        }
+    ]
+}

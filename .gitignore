@@ -5,3 +5,20 @@ __pycache__/
 *.pyo
 examples/tinygrad/l4t-sources/public_sources.tbz2
 examples/tinygrad/l4t-sources/Linux_for_Tegra/source/kernel_oot_modules_src.tbz2
+
+*.so
+*.o
+
+# Presentation benchmark artifacts
+examples/presentation/engines/
+examples/presentation/onnx/
+examples/presentation/weights/
+examples/presentation/jetson-trt/
+examples/presentation/results.json
+*.engine
+*.deb
+onnx/
+logs/
+*.onnx
+.direnv/
+.pytest_cache/
