@@ -863,8 +863,23 @@ Covers compilation, scheduling, command building, and hardware dispatch.
 
 ## 9. Compact Pipeline (one-page)
 
+All the reverse-engineered ioctls (nvgpu + nvmap) run once at startup to allocate
+memory, create the GPU channel, and enable usermode submit. After that, the entire
+steady-state dispatch is pure memory writes + one MMIO doorbell poke — zero syscalls.
+
 ```text
-  NV=1 python3 -c "print((Tensor([1,2,3]) + Tensor([4,5,6])).numpy())"
+  ── STARTUP (ioctls, once) ───────────────────────────────────────────
+
+  Python NV=1 opens /dev/nvgpu/igpu0/ctrl  +  /dev/nvmap
+       |
+       v
+  ~20 reverse-engineered ioctls across 5 fd types
+       |  nvgpu + nvmap: discover GPU, allocate memory, create channels,
+       |  build address space, enable usermode submit — all at startup
+       v
+  Channel ready — VA space, doorbell, ring buffers all mapped
+
+  ── COMPILE (Python, once per model) ────────────────────────────────
 
   Tensor ops
        |
@@ -884,16 +899,22 @@ Covers compilation, scheduling, command building, and hardware dispatch.
   Compiler  (libnvrtc.so, sm_87 --> CUBIN ELF)
        |
        v
-  HCQProgram  (cached binary + metadata, NV=1 below)
+  HCQProgram  (compiled CUBIN binary stored in GPU memory)
+
+  ── DISPATCH (pure memory writes + MMIO, every iteration) ──────────
+
+  HWQueue builds push buffer in GPU memory:
+       |  [WAIT semaphore → EXEC (QMD points to CUBIN) → SIGNAL semaphore]
+       |  repeated per kernel in the graph
+       |  (with @TinyJit, pre-recorded as HCQGraph for zero-overhead replay)
        |
        v
-  HCQGraph  (WAIT --> EXEC+QMD --> SIGNAL, per kernel)
+  Three levels of pointers, all in the same 64 GB unified memory:
+       |  GPFIFO entry  →  push buffer  →  QMD (256B)  →  CUBIN binary
+       |  (ring slot)      (method hdrs)   (grid, regs)   (shader code)
        |
        v
-  Push buffer written to GPU memory  (method headers + QMD)
-       |
-       v
-  GPFIFO entry --> GPPut --> doorbell[0x90]  (ONE MMIO write)
+  GPFIFO entry --> GPPut --> doorbell[0x90]  (ONE MMIO write, zero syscalls)
        |
        v
   GPU Host Interface --> PBDMA --> GPC --> (2048 CUDA Cores + 64 Tensor Cores)
@@ -904,3 +925,489 @@ Covers compilation, scheduling, command building, and hardware dispatch.
        v
   Semaphore written --> CPU reads result
 ```
+
+Same GPU pipeline as Section 9, but Python stops after export. C replays the
+push buffer directly — no interpreter, no ioctls, no syscalls in the hot loop.
+
+```text
+  ── STARTUP (ioctls, once) ───────────────────────────────────────────
+
+  Python NV=1 opens /dev/nvgpu/igpu0/ctrl  +  /dev/nvmap
+       |
+       v
+  ~20 reverse-engineered ioctls across 5 fd types  (see Section 9a)
+       |  nvgpu + nvmap: discover GPU, allocate memory, create channels,
+       |  build address space, enable usermode submit — all at startup
+       v
+  Channel ready — VA space, doorbell, ring buffers all mapped
+
+  ── COMPILE + JIT (Python, once per model) ──────────────────────────
+
+  Tensor ops
+       |
+       v
+  UOp DAG-AST  (lazy graph of micro-ops)
+       |
+       v
+  Scheduler  (fuse adjacent ops into kernels)
+       |
+       v
+  Linearizer + BEAM search  (pick fastest kernel variant)
+       |
+       v
+  Renderer  (UOps --> PTX assembly)
+       |
+       v
+  Compiler  (libnvrtc.so, sm_87 --> CUBIN ELF binary in GPU memory)
+       |
+       v
+  HWQueue builds push buffer in GPU memory:
+       |  [WAIT semaphore → EXEC (QMD points to CUBIN) → SIGNAL semaphore]
+       |  repeated per kernel in the graph
+       |
+       v
+  @TinyJit warmup  (captures HCQGraph -- frozen snapshot of push buffer)
+       |  the push buffer is now a fixed byte sequence in GPU memory
+       |  only 3 values change per iteration: kickoff, timeline_wait, timeline_signal
+       |
+       v
+  export_graph.py  (walks the HCQGraph, extracts raw pointers for C):
+       |  input/output buffer addrs    (where sensor data / actions live)
+       |  GPFIFO ring + gpput addrs    (where to write the ring entry)
+       |  doorbell MMIO addr           (the register that wakes the GPU)
+       |  push buffer GPU VA + length  (what the GPFIFO entry points to)
+       |  patch map: list of [addr, var_type, mask] for each variable slot
+       |    (the CPU addrs of the 3 words inside the push buffer that change)
+       v
+  hot_path_init()  (precompute the 8-byte GPFIFO entry, hand config to C)
+
+  ══ Python exits. C owns everything below. No ioctls, no syscalls. ══
+
+  ── HOT LOOP (C, every iteration) ───────────────────────────────────
+
+  sensor_data --memcpy--> input_buf_addr  (unified LPDDR5, ~0.1 µs)
+       |
+       v
+  apply_patches()  (~0.1 µs)
+       |  The push buffer is mostly static (same shaders, same grid dims).
+       |  But 3 semaphore counters must increment each iteration so the GPU
+       |  knows which dispatch this is (kickoff) and which completion to
+       |  wait for / signal (timeline_wait, timeline_signal).
+       |  C writes these 3 values directly into the push buffer words
+       |  at the addresses from the patch map. Volatile uint32 writes.
+       |
+       v
+  submit_gpfifo()  (~0.5 µs)
+       |  Write one 8-byte GPFIFO ring entry:
+       |    ring[put] = (push_buffer_GPU_VA | length | flags)
+       |  GPFIFO → push buffer → QMD → CUBIN  (three levels of pointers,
+       |    all in the same 64 GB unified memory)
+       |  Update GPPut index
+       |  dmb sy                (ARM barrier -- CPU writes visible to GPU)
+       |  mmio[0x90/4] = token  (ONE MMIO doorbell write -- wakes the GPU)
+       |
+       v
+  Reset queue signals + write KICK signal  (~0.1 µs)
+       |
+       v
+  GPU Host Interface --> PBDMA --> GPC --> (2048 CUDA Cores + 64 Tensor Cores)
+       |  PBDMA follows the pointer chain:
+       |    reads GPFIFO entry → fetches push buffer → reads QMD → launches CUBIN
+       |
+       v
+  Warps execute on unified LPDDR5 64GB  (IO coherent, no PCIe)
+       |
+       v
+  Semaphore written  (GPU writes timeline value to completion address)
+       |
+       v
+  wait_signal()  (C spin-loop: atomic_load + ARM yield, IO coherent, ~5-25 µs)
+       |
+       v
+  output_buf_addr --memcpy--> action_output  (~0.1 µs)
+       |
+       v
+  ──loop──>  next iteration  (no re-compile, no re-schedule, no Python at all)
+```
+
+---
+
+## 9a. Reverse-Engineered Ioctls (Reference)
+
+Complete list of ioctls that tinygrad NV=1 calls on Jetson Orin AGX during startup.
+Every ioctl runs once (or once per channel / per buffer). Zero ioctls in the hot
+path — after setup, the entire dispatch loop is pure MMIO + shared-memory writes.
+
+Source: `tegradev.py` (TegraIface) and `ops_nv.py` (NVDevice.__init__ + _new_gpu_fifo)
+
+```text
+  ── IOCTL REFERENCE (call order during NVDevice.__init__) ────────────
+
+  fd type         ioctl                       purpose
+  ─────────────────────────────────────────────────────────────────────
+
+  (1) OPEN DEVICES  [TegraIface.__init__]
+
+      -              open("/dev/nvmap")          → nvmap_fd
+      -              open("/dev/nvgpu/igpu0/ctrl") → ctrl_fd
+
+  (2) DISCOVER GPU  [TegraIface.__init__]
+
+      ctrl_fd  'G'   GET_CHARACTERISTICS (nr 5)  arch, SM 8.7, class IDs,
+                                                  VA bits, max GPFIFO entries
+
+  (3) BUILD GPU ADDRESS SPACE  [rm_alloc → NV01_MEMORY_VIRTUAL]
+
+      ctrl_fd  'G'   ALLOC_AS (nr 8)             create 40-bit GPU VA → as_fd
+      as_fd    'A'   AS_ALLOC_SP (nr 6) ×2       reserve VA for shader windows
+                                                  (shared_mem @ 0xFE0000_0000,
+                                                   local_mem  @ 0xFD0000_0000)
+
+  (4) ALLOCATE MEMORY  [TegraIface.alloc, repeated per buffer]
+      (gpfifo_area, notifiers ×2, ring ×2, userd ×2, cmdq_page,
+       signal page, kernargs buf, 32 copy bufs = ~40 buffers total)
+
+      nvmap_fd 'N'   NVMAP_CREATE (nr 0)         create nvmap handle
+      nvmap_fd 'N'   NVMAP_ALLOC (nr 3)          back handle with IOVMM pages
+      nvmap_fd 'N'   NVMAP_GET_FD (nr 15)        export handle → dmabuf fd
+      as_fd    'A'   AS_MAP_BUFFER_EX (nr 7)     map dmabuf into GPU VA
+      -              mmap(dmabuf_fd)              CPU access to buffer
+
+  (5) CREATE THREAD SCHEDULING GROUP  [rm_alloc → KEPLER_CHANNEL_GROUP_A]
+
+      ctrl_fd  'G'   OPEN_TSG (nr 9)             → tsg_fd
+
+  (6) CREATE ASYNC SUBCONTEXT  [rm_alloc → FERMI_CONTEXT_SHARE_A]
+
+      tsg_fd   'T'   CREATE_SUBCONTEXT (nr 18)   async compute VEID on TSG
+
+  (7) CREATE CHANNELS ×2  [_new_gpu_fifo → rm_alloc → gpfifo_class]
+      (compute channel + DMA channel, each gets the full sequence below)
+
+      ctrl_fd  'G'   OPEN_CHANNEL (nr 11)        → ch_fd
+      as_fd    'A'   AS_BIND_CH (nr 1)           bind channel to address space
+      tsg_fd   'T'   TSG_BIND_CH (nr 11)         bind channel into TSG
+      ch_fd    'H'   CH_WDT (nr 119)             disable watchdog timer
+      nvmap_fd 'N'   NVMAP_CREATE+ALLOC+GET_FD   ring buffer (GPFIFO entries)
+      nvmap_fd 'N'   NVMAP_CREATE+ALLOC+GET_FD   userd (GPPut register page)
+      ch_fd    'H'   SETUP_BIND (nr 128)         enable usermode submit → token
+      -              mmap MAP_FIXED ×2            overlay ring + userd onto
+                                                  gpfifo_area CPU mapping
+
+  (8) BIND ENGINE OBJECTS ×2  [rm_alloc → compute_class / dma_class]
+
+      ch_fd    'H'   ALLOC_OBJ_CTX (nr 108)      compute engine (class 0xc7c0)
+      ch_fd    'H'   ALLOC_OBJ_CTX (nr 108)      DMA copy engine (class 0xc7b5)
+
+  (9) MAP DOORBELL  [setup_usermode]
+
+      -              mmap(ctrl_fd, offset=0)      doorbell register page
+                                                  (write offset 0x90 = GPU poke)
+
+  ─────────────────────────────────────────────────────────────────────
+
+  5 fd types (Magic byte = ioctl number-space):
+    ctrl_fd  (Magic 'G')   /dev/nvgpu/igpu0/ctrl     GPU control
+    nvmap_fd (Magic 'N')   /dev/nvmap                 memory allocator
+    as_fd    (Magic 'A')   from ALLOC_AS              GPU address space
+    tsg_fd   (Magic 'T')   from OPEN_TSG              thread scheduling group
+    ch_fd    (Magic 'H')   from OPEN_CHANNEL          GPU channel (compute/DMA)
+
+  15 unique ioctl types, ~20 structural calls + N × (3 nvmap + 1 map) per buffer
+  After startup: pure MMIO doorbell + shared-memory writes (zero syscalls)
+
+  NOT ioctls on Tegra (handled differently):
+    PERF_BOOST              → writes sysfs /sys/class/devfreq/.../min_freq
+    GET_WORK_SUBMIT_TOKEN   → reads cached value from SETUP_BIND result
+    GPFIFO_SCHEDULE         → no-op (SETUP_BIND flags handle this)
+    GR_GET_INFO             → reads cached GET_CHARACTERISTICS data
+```
+
+---
+
+## 9b. Reverse-Engineered Ioctls (Compact)
+
+Same ioctls as Section 9a, condensed to one screen. The goal: open two devices,
+get one ioctl to tell us what GPU we have, build a virtual address space, allocate
+buffers, create a channel, and flip on usermode submit so we never need ioctls again.
+
+```text
+  WHAT                      IOCTL / CALL                     fd   Magic
+  ────────────────────────────────────────────────────────────────────────
+  open kernel interfaces    open /dev/nvmap                  →N
+                            open /dev/nvgpu/igpu0/ctrl       →G
+
+  discover GPU              GET_CHARACTERISTICS (nr 5)       G    'G'
+                              → arch, SM version, class IDs, VA bits
+
+  build GPU address space   ALLOC_AS (nr 8)                  G    'G'  →A
+                            AS_ALLOC_SP (nr 6) ×2            A    'A'
+                              → 40-bit VA space + 2 shader windows
+
+  allocate buffers (×N)     NVMAP_CREATE (nr 0)              N    'N'
+                            NVMAP_ALLOC (nr 3)               N    'N'
+                            NVMAP_GET_FD (nr 15)             N    'N'
+                            AS_MAP_BUFFER_EX (nr 7)          A    'A'
+                            mmap(dmabuf_fd)                  -
+                              → unified LPDDR5 buf with GPU VA + CPU ptr
+
+  create scheduling group   OPEN_TSG (nr 9)                  G    'G'  →T
+                            CREATE_SUBCONTEXT (nr 18)        T    'T'
+                              → thread scheduling group + async VEID
+
+  create channel (×2)       OPEN_CHANNEL (nr 11)             G    'G'  →H
+                            AS_BIND_CH (nr 1)                A    'A'
+                            TSG_BIND_CH (nr 11)              T    'T'
+                            CH_WDT (nr 119)                  H    'H'
+                            NVMAP_CREATE+ALLOC+GET_FD ×2     N    'N'
+                            SETUP_BIND (nr 128)              H    'H'
+                            mmap MAP_FIXED ×2                -
+                              → channel with ring buf, userd, submit token
+
+  bind engines (×2)         ALLOC_OBJ_CTX (nr 108)           H    'H'
+                              → compute 0xc7c0 + DMA 0xc7b5
+
+  map doorbell              mmap(ctrl_fd)                    -
+                              → MMIO page, write offset 0x90 to poke GPU
+  ────────────────────────────────────────────────────────────────────────
+  15 ioctl types  ·  5 fd types (G N A T H)  ·  ~20 structural + N per buf
+  After this: zero syscalls — just shared-memory writes + one MMIO doorbell
+```
+
+---
+
+## 10. Compact Pipeline with C Hot Path (one-page)
+
+The C hot path eliminates **all Python overhead** from the steady-state dispatch
+loop. Python + ~20 reverse-engineered ioctls (see Section 9a) run once at startup
+to discover the GPU, allocate unified memory, create the address space, create
+channels, and enable usermode submit. Then Python compiles the model, JIT-warms it, and captures the
+HCQGraph. `export_graph.py` extracts every raw address (GPU buffers, GPFIFO ring,
+doorbell MMIO, push buffer, signal semaphores, and a patch map) into a
+`hot_path_config_t` struct. From that point on, **C owns the entire hot loop** —
+no Python interpreter, no ctypes marshalling, no GC pauses, no `__call__` overhead,
+no ioctls per iteration.
+
+The GPU pointer chain: **GPFIFO → push buffer → QMD → CUBIN**. Three levels of
+pointers, all in the same 64 GB unified memory. The GPFIFO ring entry points to
+the push buffer. The push buffer contains method headers that point to QMD
+descriptors (256 bytes each: grid dims, register count, shared mem). Each QMD
+points to a compiled CUBIN shader binary. C replays this entire chain by writing
+one 8-byte ring entry and poking the doorbell.
+
+What C does on each iteration:
+1. `memcpy` sensor data into the GPU input buffer (unified memory, ~0.1 µs)
+2. Patch 3 semaphore counters in the push buffer (kickoff + timeline values, ~0.1 µs)
+3. Write one GPFIFO ring entry + poke the doorbell MMIO register (~0.5 µs)
+4. Reset queue signals + write the KICK signal to unblock the GPU (~0.1 µs)
+5. Spin-wait on the completion semaphore (ARM `yield` loop, ~5-25 µs)
+6. `memcpy` action output from the GPU output buffer (~0.1 µs)
+
+Total CPU-side overhead: **< 1 µs** (vs ~1700 µs through Python).
+
+```text
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  SETUP PHASE (Python, runs once)                                    │
+  │                                                                     │
+  │  Tensor ops                                                         │
+  │       |                                                             │
+  │       v                                                             │
+  │  UOp DAG-AST  (lazy graph of micro-ops)                             │
+  │       |                                                             │
+  │       v                                                             │
+  │  Scheduler  (fuse adjacent ops into kernels)                        │
+  │       |                                                             │
+  │       v                                                             │
+  │  Linearizer + BEAM search  (pick fastest kernel variant)            │
+  │       |                                                             │
+  │       v                                                             │
+  │  Renderer  (UOps --> PTX assembly)                                  │
+  │       |                                                             │
+  │       v                                                             │
+  │  Compiler  (libnvrtc.so, sm_87 --> CUBIN ELF)                       │
+  │       |                                                             │
+  │       v                                                             │
+  │  HCQProgram  (compiled CUBIN + launch metadata, in GPU memory)      │
+  │       |                                                             │
+  │       v                                                             │
+  │  @TinyJit warmup  (captures HCQGraph: full command queue snapshot)  │
+  │       |                                                             │
+  │       v                                                             │
+  │  export_graph.py  (extracts raw addrs into hot_path_config_t):      │
+  │       ├── input/output buffer CPU addrs  (unified memory)           │
+  │       ├── GPFifo ring addr, gpput addr, doorbell MMIO addr          │
+  │       ├── command queue GPU VA + length                             │
+  │       ├── timeline signal addr, KICK signal addr                    │
+  │       └── patch map: [addr, var_type, mask] for each variable slot  │
+  │                                                                     │
+  └──────────────────────────┬──────────────────────────────────────────┘
+                             │  config struct handed to C via ctypes
+                             v
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  HOT LOOP (C, no Python interpreter, no syscalls, no ioctls)        │
+  │                                                                     │
+  │  sensor_data ──memcpy──> input_buf_addr  (unified LPDDR5, ~0.1 µs) │
+  │       |                                                             │
+  │       v                                                             │
+  │  apply_patches()  (~0.1 µs)                                        │
+  │       |   Push buffer is mostly static. Only 3 semaphore counters   │
+  │       |   change per iteration (kickoff, timeline_wait, timeline_   │
+  │       |   signal). C writes them directly at the patch map addrs.   │
+  │       v                                                             │
+  │  submit_gpfifo()  (~0.5 µs)                                        │
+  │       |   ring[put] = GPFIFO entry (points to push buffer GPU VA)   │
+  │       |   GPFIFO → push buffer → QMD → CUBIN (pointer chain)        │
+  │       |   gpput[0]  = (put+1) % entries                             │
+  │       |   dmb sy                     (ARM barrier: CPU→GPU visible) │
+  │       |   mmio[0x90/4] = token       (ONE doorbell write)           │
+  │       v                                                             │
+  │  reset queue signals + write KICK signal  (~0.1 µs)                 │
+  │       |                                                             │
+  │       v                                                             │
+  │  ┌───────────────────────────────────────────────────────────────┐  │
+  │  │  GPU executes (triggered by doorbell)                         │  │
+  │  │  PBDMA reads push buffer → GPC dispatches warps               │  │
+  │  │  2048 CUDA Cores + 64 Tensor Cores process kernels            │  │
+  │  │  Results written to output buf (unified LPDDR5, IO coherent)  │  │
+  │  │  SIGNAL: writes timeline value to semaphore                   │  │
+  │  └───────────────────────────────────────────────────────────────┘  │
+  │       |                                                             │
+  │       v                                                             │
+  │  wait_signal()  (spin on semaphore with ARM yield, IO coherent)     │
+  │       |                                                             │
+  │       v                                                             │
+  │  output_buf_addr ──memcpy──> action_output  (~0.1 µs)              │
+  │       |                                                             │
+  │       v                                                             │
+  │  return cycle_time_ns  ──loop──>  next iteration                    │
+  │                                                                     │
+  └─────────────────────────────────────────────────────────────────────┘
+
+  Key: Python overhead eliminated
+  ─────────────────────────────────────────────────────────────
+  ✗ No Python interpreter in hot loop
+  ✗ No ctypes marshalling per iteration (C loops directly)
+  ✗ No GC pauses or reference counting
+  ✗ No __call__ / schedule / linearize per iteration
+  ✗ No ioctls, no CUDA runtime, no driver calls
+  ─────────────────────────────────────────────────────────────
+  ✓ Ioctls run once at startup (nvmap + nvgpu), pure MMIO after that
+  ✓ Same GPU commands as tinygrad NV=1 HCQGraph replay
+  ✓ GPFIFO → push buffer → QMD → CUBIN (pointer chain in unified memory)
+  ✓ C does: memcpy → patch 3 words → ring write → doorbell poke → spin-wait
+  ✓ Total CPU dispatch overhead: < 1 µs per iteration
+```
+
+---
+
+## 11. NixOS: Declarative Hardware Enablement
+
+The kernel already has every driver we need (`inv_mpu6050`, `i2c-dev`, `uvcvideo`).
+The hard part is the **wiring**: loading modules, setting permissions, binding
+devices, creating groups, installing tools. Ubuntu makes you do it by hand.
+NixOS makes it declarative.
+
+### The Ubuntu Way (6 steps, 6 files, 0 rollback)
+
+```bash
+# 1. Load kernel modules (and figure out which ones you need)
+sudo modprobe i2c-dev
+sudo modprobe inv-mpu6050-i2c
+sudo modprobe industrialio
+
+# 2. Persist across reboots
+echo "i2c-dev"         | sudo tee    /etc/modules-load.d/i2c.conf
+echo "inv-mpu6050-i2c" | sudo tee -a /etc/modules-load.d/i2c.conf
+echo "industrialio"    | sudo tee -a /etc/modules-load.d/i2c.conf
+
+# 3. Hand-craft udev rules
+cat <<'EOF' | sudo tee /etc/udev/rules.d/99-imu.rules
+SUBSYSTEM=="iio",         GROUP="video", MODE="0660"
+SUBSYSTEM=="i2c-dev",     GROUP="i2c",   MODE="0660"
+SUBSYSTEM=="video4linux", GROUP="video", MODE="0660"
+EOF
+sudo udevadm control --reload
+
+# 4. Create groups, add users
+sudo groupadd i2c
+sudo usermod -aG i2c,video agent
+sudo usermod -aG i2c,video spencer
+# (log out, log back in)
+
+# 5. Write a systemd unit to bind the IMU at boot
+cat <<'EOF' | sudo tee /etc/systemd/system/mpu9250-bind.service
+[Unit]
+Description=Bind MPU-9250 to inv_mpu6050
+After=systemd-modules-load.service
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=/bin/sh -c 'echo "inv_mpu6050 0x68" > /sys/bus/i2c/devices/i2c-7/new_device'
+[Install]
+WantedBy=multi-user.target
+EOF
+sudo systemctl daemon-reload
+sudo systemctl enable mpu9250-bind
+
+# 6. Install userspace tools
+sudo apt install i2c-tools v4l-utils
+
+# Files touched: /etc/modules-load.d/i2c.conf
+#                /etc/udev/rules.d/99-imu.rules
+#                /etc/systemd/system/mpu9250-bind.service
+#                /etc/group, /etc/passwd, apt state
+# Second board? Do it all again. From memory.
+# apt upgrade breaks it? Good luck rolling back.
+```
+
+### The NixOS Way (1 file, 1 command, instant rollback)
+
+```nix
+# sensors.nix — the ENTIRE sensor stack
+services.orin-sensors = {
+  enable      = true;          # ← one switch
+  imuI2cBus   = 7;
+  imuI2cAddr  = "0x68";
+  cameraUsers = [ "agent" "spencer" ];
+};
+```
+
+```bash
+sudo nixos-rebuild switch --flake .#nixos-sensors
+# ✓ Kernel modules loaded   (i2c-dev, inv-mpu6050-i2c, industrialio, uvcvideo)
+# ✓ udev rules applied      (IIO, I2C, V4L2 permissions)
+# ✓ Groups created           (i2c)
+# ✓ Users added to groups    (agent, spencer → video + i2c)
+# ✓ MPU-9250 bound at boot   (systemd oneshot)
+# ✓ Tools installed           (i2c-tools, v4l-utils)
+```
+
+Broke something? Roll back in 10 seconds:
+
+```bash
+sudo nixos-rebuild switch --rollback
+```
+
+### Verify (3 commands)
+
+```bash
+i2cdetect -y 7                              # 0x68 = MPU-9250 responding
+cat /sys/bus/iio/devices/iio:device*/name    # inv_mpu6050 + ak8963
+v4l2-ctl --list-devices                      # USB stereo camera
+```
+
+### Composability — stack modules like LEGO
+
+```nix
+# flake.nix — same pattern, different stacks
+nixosConfigurations = {
+  nixos-sensors     = base ++ [ performance  sensors       ];
+  nixos-llama-cpp   = base ++ [ performance  llama-cpp     ];
+  nixos-docker-bench = base ++ [ performance  docker-nvidia ];
+  nixos-telemetry   = base ++ [ telemetry                  ];
+};
+# Every config:   sudo nixos-rebuild switch --flake .#<name>
+# Every rollback: sudo nixos-rebuild switch --rollback
+```
+
+

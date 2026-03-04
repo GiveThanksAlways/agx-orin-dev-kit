@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IMU-3D · MPU-9250 Live Telemetry</title>
+<style>
+  /* ── Reset & base ────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #060a14;
+    --bg-panel:  #0c1222;
+    --bg-card:   #111b2e;
+    --border:    rgba(255,255,255,0.06);
+    --text:      #e2e8f0;
+    --text-dim:  #64748b;
+    --text-mute: #334155;
+    --axis-x:    #ef4444;
+    --axis-y:    #22c55e;
+    --axis-z:    #3b82f6;
+    --accent:    #06b6d4;
+    --glow:      rgba(6,182,212,0.25);
+  }
+
+  body {
+    font-family: 'SF Mono', 'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace;
+    background: var(--bg);
+    color: var(--text);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    display: grid;
+    grid-template-rows: 48px 1fr 36px;
+    grid-template-columns: 1fr 340px;
+  }
+
+  /* ── Top bar ─────────────────────────────────────── */
+  .topbar {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 16px;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar .logo {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--accent);
+  }
+  .topbar .chip-label {
+    font-size: 11px;
+    padding: 2px 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-dim);
+  }
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #ef4444;
+    transition: background 0.3s;
+  }
+  .status-dot.ok { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,0.6); }
+  .status-text { font-size: 12px; color: var(--text-dim); }
+  .topbar .spacer { flex: 1; }
+  .topbar .stat { font-size: 11px; color: var(--text-dim); }
+  .topbar .stat b { color: var(--text); font-weight: 600; }
+
+  /* ── 3D viewport ─────────────────────────────────── */
+  #viewport {
+    position: relative;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  #viewport canvas { display: block; }
+
+  /* ── Telemetry panel ─────────────────────────────── */
+  .panel {
+    background: var(--bg-panel);
+    border-left: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .sensor-group {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .sensor-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .sensor-icon {
+    font-size: 14px;
+    color: var(--accent);
+  }
+  .sensor-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .sensor-unit {
+    margin-left: auto;
+    font-size: 10px;
+    color: var(--text-mute);
+  }
+
+  .axis-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .axis-row:last-child { margin-bottom: 0; }
+
+  .axis-label {
+    font-size: 12px;
+    font-weight: 700;
+    width: 14px;
+    text-align: center;
+  }
+
+  .gauge-track {
+    flex: 1;
+    height: 6px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 3px;
+    position: relative;
+    overflow: hidden;
+  }
+  .gauge-center {
+    position: absolute;
+    left: 50%;
+    width: 1px;
+    height: 100%;
+    background: rgba(255,255,255,0.1);
+  }
+  .gauge-fill {
+    position: absolute;
+    height: 100%;
+    border-radius: 3px;
+    transition: left 60ms ease-out, width 60ms ease-out;
+    opacity: 0.85;
+  }
+
+  .axis-value {
+    font-size: 12px;
+    width: 72px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }
+
+  /* ── Orientation card ────────────────────────────── */
+  .orient-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+  }
+  .orient-cell {
+    text-align: center;
+    padding: 8px 0;
+    background: rgba(255,255,255,0.02);
+    border-radius: 6px;
+  }
+  .orient-cell .lbl {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+  .orient-cell .val {
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  /* ── Bottom bar ──────────────────────────────────── */
+  .bottombar {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 16px;
+    background: var(--bg-panel);
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .bottombar .spacer { flex: 1; }
+
+  button.btn {
+    font-family: inherit;
+    font-size: 11px;
+    padding: 4px 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--bg-card);
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  button.btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Responsive ──────────────────────────────────── */
+  @media (max-width: 800px) {
+    body { grid-template-columns: 1fr; }
+    .panel { display: none; }
+  }
+</style>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+
+<!-- ── Top bar ──────────────────────────────────────── -->
+<header class="topbar">
+  <span class="logo">IMU-3D</span>
+  <span class="chip-label">MPU-9250</span>
+  <div class="status-dot" id="statusDot"></div>
+  <span class="status-text" id="statusText">Connecting…</span>
+  <span class="spacer"></span>
+  <span class="stat"><b id="hzVal">—</b> Hz</span>
+  <span class="stat"><b id="tempVal">—</b> °C</span>
+</header>
+
+<!-- ── 3D viewport ──────────────────────────────────── -->
+<div id="viewport"></div>
+
+<!-- ── Telemetry panel ──────────────────────────────── -->
+<aside class="panel">
+
+  <!-- Accelerometer -->
+  <div class="sensor-group">
+    <div class="sensor-header">
+      <span class="sensor-icon">▸</span>
+      <span class="sensor-title">Accelerometer</span>
+      <span class="sensor-unit">g</span>
+    </div>
+    <div class="axis-row">
+      <span class="axis-label" style="color:var(--axis-x)">X</span>
+      <div class="gauge-track"><div class="gauge-center"></div><div class="gauge-fill" id="ax-bar" style="background:var(--axis-x)"></div></div>
+      <span class="axis-value" id="ax-val">—</span>
+    </div>
+    <div class="axis-row">
+      <span class="axis-label" style="color:var(--axis-y)">Y</span>
+      <div class="gauge-track"><div class="gauge-center"></div><div class="gauge-fill" id="ay-bar" style="background:var(--axis-y)"></div></div>
+      <span class="axis-value" id="ay-val">—</span>
+    </div>
+    <div class="axis-row">
+      <span class="axis-label" style="color:var(--axis-z)">Z</span>
+      <div class="gauge-track"><div class="gauge-center"></div><div class="gauge-fill" id="az-bar" style="background:var(--axis-z)"></div></div>
+      <span class="axis-value" id="az-val">—</span>
+    </div>
+  </div>
+
+  <!-- Gyroscope -->
+  <div class="sensor-group">
+    <div class="sensor-header">
+      <span class="sensor-icon">↻</span>
+      <span class="sensor-title">Gyroscope</span>
+      <span class="sensor-unit">°/s</span>
+    </div>
+    <div class="axis-row">
+      <span class="axis-label" style="color:var(--axis-x)">X</span>
+      <div class="gauge-track"><div class="gauge-center"></div><div class="gauge-fill" id="gx-bar" style="background:var(--axis-x)"></div></div>
+      <span class="axis-value" id="gx-val">—</span>
+    </div>
+    <div class="axis-row">
+      <span class="axis-label" style="color:var(--axis-y)">Y</span>
+      <div class="gauge-track"><div class="gauge-center"></div><div class="gauge-fill" id="gy-bar" style="background:var(--axis-y)"></div></div>
+      <span class="axis-value" id="gy-val">—</span>
+    </div>
+    <div class="axis-row">
+      <span class="axis-label" style="color:var(--axis-z)">Z</span>
+      <div class="gauge-track"><div class="gauge-center"></div><div class="gauge-fill" id="gz-bar" style="background:var(--axis-z)"></div></div>
+      <span class="axis-value" id="gz-val">—</span>
+    </div>
+  </div>
+
+  <!-- Magnetometer -->
+  <div class="sensor-group">
+    <div class="sensor-header">
+      <span class="sensor-icon">◉</span>
+      <span class="sensor-title">Magnetometer</span>
+      <span class="sensor-unit">µT</span>
+    </div>
+    <div class="axis-row">
+      <span class="axis-label" style="color:var(--axis-x)">X</span>
+      <div class="gauge-track"><div class="gauge-center"></div><div class="gauge-fill" id="mx-bar" style="background:var(--axis-x)"></div></div>
+      <span class="axis-value" id="mx-val">—</span>
+    </div>
+    <div class="axis-row">
+      <span class="axis-label" style="color:var(--axis-y)">Y</span>
+      <div class="gauge-track"><div class="gauge-center"></div><div class="gauge-fill" id="my-bar" style="background:var(--axis-y)"></div></div>
+      <span class="axis-value" id="my-val">—</span>
+    </div>
+    <div class="axis-row">
+      <span class="axis-label" style="color:var(--axis-z)">Z</span>
+      <div class="gauge-track"><div class="gauge-center"></div><div class="gauge-fill" id="mz-bar" style="background:var(--axis-z)"></div></div>
+      <span class="axis-value" id="mz-val">—</span>
+    </div>
+  </div>
+
+  <!-- Orientation -->
+  <div class="sensor-group">
+    <div class="sensor-header">
+      <span class="sensor-icon">⊕</span>
+      <span class="sensor-title">Orientation</span>
+      <span class="sensor-unit">degrees</span>
+    </div>
+    <div class="orient-grid">
+      <div class="orient-cell">
+        <div class="lbl">Roll</div>
+        <div class="val" id="roll-val" style="color:var(--axis-x)">—</div>
+      </div>
+      <div class="orient-cell">
+        <div class="lbl">Pitch</div>
+        <div class="val" id="pitch-val" style="color:var(--axis-y)">—</div>
+      </div>
+      <div class="orient-cell">
+        <div class="lbl">Yaw</div>
+        <div class="val" id="yaw-val" style="color:var(--axis-z)">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quaternion -->
+  <div class="sensor-group">
+    <div class="sensor-header">
+      <span class="sensor-icon">◇</span>
+      <span class="sensor-title">Quaternion</span>
+    </div>
+    <div style="font-size:12px; color:var(--text-dim); line-height:1.8; font-variant-numeric:tabular-nums">
+      <span style="color:var(--text)">w</span> <span id="qw-val">—</span> &nbsp;
+      <span style="color:var(--axis-x)">x</span> <span id="qx-val">—</span> &nbsp;
+      <span style="color:var(--axis-y)">y</span> <span id="qy-val">—</span> &nbsp;
+      <span style="color:var(--axis-z)">z</span> <span id="qz-val">—</span>
+    </div>
+  </div>
+
+</aside>
+
+<!-- ── Bottom bar ───────────────────────────────────── -->
+<footer class="bottombar">
+  <span id="wsUrl">—</span>
+  <span class="spacer"></span>
+  <button class="btn" id="btnCalibrate">↻ Calibrate</button>
+  <button class="btn" id="btnResetCam">⊞ Reset Camera</button>
+</footer>
+
+<!-- ── Three.js scene ───────────────────────────────── -->
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ── DOM refs ──────────────────────────────────────────
+const $  = id => document.getElementById(id);
+const vp = $('viewport');
+
+// ── Scene setup ───────────────────────────────────────
+const scene    = new THREE.Scene();
+scene.background = new THREE.Color(0x060a14);
+scene.fog = new THREE.FogExp2(0x060a14, 0.04);
+
+const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+camera.position.set(5, 3.5, 5);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+vp.appendChild(renderer.domElement);
+
+// ── Controls ──────────────────────────────────────────
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.target.set(0, 0.3, 0);
+controls.minDistance = 3;
+controls.maxDistance = 15;
+
+function resetCamera() {
+  camera.position.set(5, 3.5, 5);
+  controls.target.set(0, 0.3, 0);
+}
+
+// ── Lights ────────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0x303050, 0.6));
+
+const hemi = new THREE.HemisphereLight(0x7ec8e3, 0x1a0a2e, 0.35);
+scene.add(hemi);
+
+const dir = new THREE.DirectionalLight(0xffffff, 1.2);
+dir.position.set(4, 8, 5);
+dir.castShadow = true;
+dir.shadow.mapSize.set(1024, 1024);
+dir.shadow.camera.near = 1;
+dir.shadow.camera.far = 20;
+dir.shadow.camera.left = dir.shadow.camera.bottom = -5;
+dir.shadow.camera.right = dir.shadow.camera.top = 5;
+scene.add(dir);
+
+// Subtle accent light from below
+const pt = new THREE.PointLight(0x06b6d4, 0.3, 12);
+pt.position.set(0, -2, 0);
+scene.add(pt);
+
+// ── Ground grid ───────────────────────────────────────
+const grid = new THREE.GridHelper(14, 28, 0x162033, 0x0e1725);
+grid.position.y = -2;
+scene.add(grid);
+
+// Ground plane (invisible, for shadow catching)
+const groundGeo = new THREE.PlaneGeometry(20, 20);
+const groundMat = new THREE.ShadowMaterial({ opacity: 0.15 });
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = -2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// ── PCB Board Model ──────────────────────────────────
+function createBoard() {
+  const g = new THREE.Group();
+
+  // PCB substrate
+  const pcbMat = new THREE.MeshStandardMaterial({
+    color: 0x1a6b1a, roughness: 0.75, metalness: 0.05
+  });
+  const pcb = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.12, 1.5), pcbMat);
+  pcb.castShadow = true;
+  pcb.receiveShadow = true;
+  g.add(pcb);
+
+  // Solder mask edge highlight
+  const edgeMat = new THREE.MeshStandardMaterial({
+    color: 0x228b22, roughness: 0.5, metalness: 0.1, transparent: true, opacity: 0.4
+  });
+  const edge = new THREE.Mesh(new THREE.BoxGeometry(2.54, 0.13, 1.54), edgeMat);
+  g.add(edge);
+
+  // MPU-9250 QFN chip
+  const chipMat = new THREE.MeshStandardMaterial({
+    color: 0x1a1a1a, roughness: 0.35, metalness: 0.4
+  });
+  const chip = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.08, 0.45), chipMat);
+  chip.position.set(0.15, 0.1, 0);
+  chip.castShadow = true;
+  g.add(chip);
+
+  // Chip orientation marker (dot)
+  const dotGeo = new THREE.CircleGeometry(0.035, 16);
+  const dotMat = new THREE.MeshStandardMaterial({ color: 0x555555 });
+  const dot = new THREE.Mesh(dotGeo, dotMat);
+  dot.rotation.x = -Math.PI / 2;
+  dot.position.set(-0.02, 0.141, -0.14);
+  g.add(dot);
+
+  // Voltage regulator
+  const regMat = new THREE.MeshStandardMaterial({
+    color: 0x222222, roughness: 0.4, metalness: 0.2
+  });
+  const reg = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.06, 0.15), regMat);
+  reg.position.set(-0.6, 0.09, 0.3);
+  g.add(reg);
+
+  // Decoupling caps (small tan rectangles)
+  const capMat = new THREE.MeshStandardMaterial({ color: 0xc8a85a, roughness: 0.6 });
+  [[-0.3, 0.3], [0.5, 0.2], [0.5, -0.2], [-0.3, -0.3]].forEach(([x, z]) => {
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.04, 0.06), capMat);
+    cap.position.set(x, 0.08, z);
+    g.add(cap);
+  });
+
+  // Pin headers (10 pins along one edge)
+  const pinMat = new THREE.MeshStandardMaterial({
+    color: 0xd4a843, roughness: 0.3, metalness: 0.85
+  });
+  const headerMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.6 });
+  // Black header body
+  const header = new THREE.Mesh(
+    new THREE.BoxGeometry(2.3, 0.25, 0.25), headerMat
+  );
+  header.position.set(0, -0.06, -0.65);
+  g.add(header);
+  // Gold pins
+  for (let i = 0; i < 10; i++) {
+    const pin = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.02, 0.02, 0.5, 6), pinMat
+    );
+    pin.position.set(-1.0 + i * 0.254, -0.22, -0.65);
+    pin.castShadow = true;
+    g.add(pin);
+  }
+
+  // Copper traces (thin lines on PCB face)
+  const traceMat = new THREE.MeshStandardMaterial({
+    color: 0x7c5e2a, roughness: 0.5, metalness: 0.6, transparent: true, opacity: 0.5
+  });
+  [[0, 0, 0.8, 0.01, 0.06], [0, 0, -0.4, 0.01, 0.06],
+   [-0.3, 0, 0.06, 0.01, 0.5], [0.5, 0, 0.06, 0.01, 0.3]].forEach(([x, z, sx, sy, sz]) => {
+    const trace = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), traceMat);
+    trace.position.set(x, 0.065, z);
+    g.add(trace);
+  });
+
+  // ── Axis arrows ─────────────────────────────────────
+  const arrowOrigin = new THREE.Vector3(0, 0.25, 0);
+  const arrowLen = 1.8;
+  const headLen = 0.15;
+  const headW = 0.08;
+
+  g.add(new THREE.ArrowHelper(
+    new THREE.Vector3(1,0,0), arrowOrigin, arrowLen, 0xef4444, headLen, headW));
+  g.add(new THREE.ArrowHelper(
+    new THREE.Vector3(0,1,0), arrowOrigin, arrowLen, 0x22c55e, headLen, headW));
+  g.add(new THREE.ArrowHelper(
+    new THREE.Vector3(0,0,1), arrowOrigin, arrowLen, 0x3b82f6, headLen, headW));
+
+  // Axis labels (sprites)
+  const labelData = [
+    ['X', 0xef4444, [arrowLen + 0.25, 0.25, 0]],
+    ['Y', 0x22c55e, [0, arrowLen + 0.45, 0]],
+    ['Z', 0x3b82f6, [0, 0.25, arrowLen + 0.25]],
+  ];
+  for (const [text, color, pos] of labelData) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 64; canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    ctx.font = 'bold 48px monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#' + color.toString(16).padStart(6, '0');
+    ctx.fillText(text, 32, 32);
+    const tex = new THREE.CanvasTexture(canvas);
+    const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false });
+    const spr = new THREE.Sprite(mat);
+    spr.position.set(pos[0], pos[1], pos[2]);
+    spr.scale.set(0.4, 0.4, 0.4);
+    g.add(spr);
+  }
+
+  return g;
+}
+
+const board = createBoard();
+scene.add(board);
+
+// ── World reference axes (faded) ──────────────────────
+const worldAxes = new THREE.Group();
+const wa = 0.25;
+worldAxes.add(new THREE.ArrowHelper(new THREE.Vector3(1,0,0), new THREE.Vector3(0,-2,0), 2, 0x3a1515, 0.06, 0.04));
+worldAxes.add(new THREE.ArrowHelper(new THREE.Vector3(0,1,0), new THREE.Vector3(0,-2,0), 2, 0x153a15, 0.06, 0.04));
+worldAxes.add(new THREE.ArrowHelper(new THREE.Vector3(0,0,1), new THREE.Vector3(0,-2,0), 2, 0x15153a, 0.06, 0.04));
+scene.add(worldAxes);
+
+// ── Quaternion state ──────────────────────────────────
+const targetQuat  = new THREE.Quaternion();
+const currentQuat = new THREE.Quaternion();
+const SLERP_RATE  = 0.25;
+
+// Frame rotation: IMU Z-up → Three.js Y-up (−90° around X)
+const FRAME_ROT = new THREE.Quaternion();
+FRAME_ROT.setFromAxisAngle(new THREE.Vector3(1, 0, 0), -Math.PI / 2);
+
+// ── Telemetry update ──────────────────────────────────
+function setGauge(barId, value, range) {
+  const el = $(barId);
+  if (!el) return;
+  const pct = Math.min(Math.abs(value) / range, 1) * 50;
+  if (value >= 0) {
+    el.style.left = '50%';
+    el.style.width = pct + '%';
+  } else {
+    el.style.left = (50 - pct) + '%';
+    el.style.width = pct + '%';
+  }
+}
+
+function setText(id, text) {
+  const el = $(id);
+  if (el) el.textContent = text;
+}
+
+function fmt(v, d) {
+  return (v >= 0 ? '+' : '') + v.toFixed(d);
+}
+
+function quatToEuler(q) {
+  // q = [w, x, y, z]
+  const [w, x, y, z] = q;
+  const sinr  = 2 * (w*x + y*z);
+  const cosr  = 1 - 2 * (x*x + y*y);
+  const roll  = Math.atan2(sinr, cosr);
+  const sinp  = 2 * (w*y - z*x);
+  const pitch = Math.abs(sinp) >= 1 ? Math.sign(sinp) * Math.PI / 2 : Math.asin(sinp);
+  const siny  = 2 * (w*z + x*y);
+  const cosy  = 1 - 2 * (y*y + z*z);
+  const yaw   = Math.atan2(siny, cosy);
+  const DEG   = 180 / Math.PI;
+  return [roll * DEG, pitch * DEG, yaw * DEG];
+}
+
+function handleData(d) {
+  // Quaternion → Three.js
+  const imuQuat = new THREE.Quaternion(d.q[1], d.q[2], d.q[3], d.q[0]);
+  targetQuat.multiplyQuaternions(FRAME_ROT, imuQuat);
+
+  // Accelerometer
+  setGauge('ax-bar', d.accel[0], 2);
+  setGauge('ay-bar', d.accel[1], 2);
+  setGauge('az-bar', d.accel[2], 2);
+  setText('ax-val', fmt(d.accel[0], 3));
+  setText('ay-val', fmt(d.accel[1], 3));
+  setText('az-val', fmt(d.accel[2], 3));
+
+  // Gyroscope
+  setGauge('gx-bar', d.gyro[0], 250);
+  setGauge('gy-bar', d.gyro[1], 250);
+  setGauge('gz-bar', d.gyro[2], 250);
+  setText('gx-val', fmt(d.gyro[0], 1));
+  setText('gy-val', fmt(d.gyro[1], 1));
+  setText('gz-val', fmt(d.gyro[2], 1));
+
+  // Magnetometer
+  setGauge('mx-bar', d.mag[0], 100);
+  setGauge('my-bar', d.mag[1], 100);
+  setGauge('mz-bar', d.mag[2], 100);
+  setText('mx-val', fmt(d.mag[0], 1));
+  setText('my-val', fmt(d.mag[1], 1));
+  setText('mz-val', fmt(d.mag[2], 1));
+
+  // Temperature
+  setText('tempVal', d.temp.toFixed(1));
+
+  // Euler angles
+  const [roll, pitch, yaw] = quatToEuler(d.q);
+  setText('roll-val',  roll.toFixed(1) + '°');
+  setText('pitch-val', pitch.toFixed(1) + '°');
+  setText('yaw-val',   yaw.toFixed(1) + '°');
+
+  // Quaternion
+  setText('qw-val', d.q[0].toFixed(4));
+  setText('qx-val', d.q[1].toFixed(4));
+  setText('qy-val', d.q[2].toFixed(4));
+  setText('qz-val', d.q[3].toFixed(4));
+}
+
+// ── Hz counter ────────────────────────────────────────
+let msgCount = 0;
+let lastHzTime = performance.now();
+function updateHz() {
+  const now = performance.now();
+  const dt = (now - lastHzTime) / 1000;
+  if (dt >= 1) {
+    setText('hzVal', Math.round(msgCount / dt));
+    msgCount = 0;
+    lastHzTime = now;
+  }
+}
+
+// ── WebSocket ─────────────────────────────────────────
+let ws = null;
+
+function setStatus(connected) {
+  const dot = $('statusDot');
+  const txt = $('statusText');
+  if (connected) {
+    dot.classList.add('ok');
+    txt.textContent = 'Connected';
+  } else {
+    dot.classList.remove('ok');
+    txt.textContent = 'Reconnecting…';
+  }
+}
+
+function connect() {
+  const url = `ws://${location.host}/ws`;
+  setText('wsUrl', url);
+  ws = new WebSocket(url);
+
+  ws.onopen = () => setStatus(true);
+  ws.onclose = () => {
+    setStatus(false);
+    setTimeout(connect, 2000);
+  };
+  ws.onerror = () => ws.close();
+
+  ws.onmessage = (e) => {
+    msgCount++;
+    try {
+      handleData(JSON.parse(e.data));
+    } catch (_) {}
+  };
+}
+
+connect();
+
+// ── Buttons ───────────────────────────────────────────
+$('btnCalibrate').addEventListener('click', () => {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ cmd: 'calibrate' }));
+  }
+});
+$('btnResetCam').addEventListener('click', resetCamera);
+
+// ── Resize handler ────────────────────────────────────
+function onResize() {
+  const w = vp.clientWidth, h = vp.clientHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+}
+window.addEventListener('resize', onResize);
+onResize();
+
+// ── Animation loop ────────────────────────────────────
+function animate() {
+  requestAnimationFrame(animate);
+
+  // Smooth quaternion interpolation
+  currentQuat.slerp(targetQuat, SLERP_RATE);
+  board.quaternion.copy(currentQuat);
+
+  controls.update();
+  updateHz();
+  renderer.render(scene, camera);
+}
+
+animate();
+</script>
+</body>
+</html>
