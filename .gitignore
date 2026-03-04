@@ -22,3 +22,7 @@ logs/
 *.onnx
 .direnv/
 .pytest_cache/
+
+examples/yolo-camera/outputs/
+examples/yolo-camera/outputs_warmup/
+examples/yolo-camera/*.mp4

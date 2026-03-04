@@ -8,6 +8,7 @@
 #   nixos-rebuild switch --flake .#nixos-llama-cpp      Base + perf + llama.cpp server
 #   nixos-rebuild switch --flake .#nixos-tabby-api      Base + perf + TabbyAPI server
 #   nixos-rebuild switch --flake .#nixos-telemetry      Base + Grafana/Prometheus GPU telemetry
+#   nixos-rebuild switch --flake .#nixos-sensors        Base + perf + IMU (MPU-9250) + USB camera
 
 {
   description = "NixOS configuration for Jetson AGX Orin";
@@ -152,6 +153,30 @@
             services.docker-nvidia = {
               enable = true;
               users = [ "agent" "spencer" ];
+            };
+          })
+        ];
+      };
+
+      # -- Sensors: IMU (MPU-9250) + USB stereo camera --
+      # Enables the MPU-9250 IMU on I2C-7 and USB UVC camera.
+      # After switching, verify with:
+      #
+      #   i2cdetect -y 7          # should show 0x68
+      #   cat /sys/bus/iio/devices/iio:device*/name   # inv_mpu6050
+      #   v4l2-ctl --list-devices  # USB stereo camera
+      #
+      nixosConfigurations.nixos-sensors = nixpkgs.lib.nixosSystem {
+        modules = baseModules ++ [
+          ./modules/performance.nix
+          ./modules/sensors.nix
+          ({ ... }: {
+            services.orin-perf.enable = true;
+            services.orin-sensors = {
+              enable = true;
+              imuI2cBus = 7;
+              imuI2cAddr = "0x68";
+              cameraUsers = [ "agent" "spencer" ];
             };
           })
         ];
