@@ -24,7 +24,7 @@ static inline uint64_t timespec_to_ns(struct timespec *ts) {
 static inline void wait_signal(uint64_t signal_addr, uint64_t target) {
     volatile uint64_t *sig = (volatile uint64_t *)signal_addr;
     while (__atomic_load_n(sig, __ATOMIC_ACQUIRE) < target) {
-        __builtin_arm_yield();
+        __asm__ __volatile__("yield" ::: "memory");
     }
 }
 
@@ -133,6 +133,53 @@ uint64_t hot_path_run_iteration(
 
     /* 11. D2H: copy action from GPU output buffer */
     memcpy(action_output, (const void *)(uintptr_t)cfg->output_buf_addr, cfg->output_size);
+
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+
+    return timespec_to_ns(&t1) - timespec_to_ns(&t0);
+}
+
+/* ── Submit one HCQ graph: patch + submit + wait + kick (no memcpy) ── */
+uint64_t hot_path_submit_graph(hot_path_config_t *cfg)
+{
+    struct timespec t0, t1;
+
+    /* 1. Wait for previous GPU completion (first call: already satisfied) */
+    wait_signal(cfg->timeline_signal_addr, cfg->last_tl_value);
+
+    clock_gettime(CLOCK_MONOTONIC, &t0);
+
+    /* 2. Increment kickoff */
+    cfg->kickoff_value++;
+
+    /* 3. Compute patch values */
+    uint32_t tl_wait   = cfg->timeline_value - 1;
+    uint32_t tl_signal = cfg->timeline_value;
+
+    /* 4. Patch command queue with new variable values */
+    apply_patches(cfg, cfg->kickoff_value, tl_wait, tl_signal);
+
+    /* 5. Submit to GPU via GPFifo */
+    submit_gpfifo(cfg);
+
+    /* 6. Update timeline tracking */
+    cfg->last_tl_value = cfg->timeline_value;
+    cfg->timeline_value++;
+
+    /* 7. Reset queue signals (must happen before KICK) */
+    for (uint32_t i = 0; i < cfg->num_queue_signals; i++) {
+        volatile uint64_t *sig = (volatile uint64_t *)cfg->queue_signal_addrs[i];
+        *sig = 0;
+    }
+
+    /* 8. KICK — unblocks the GPU which is waiting on this signal */
+    {
+        volatile uint64_t *kick = (volatile uint64_t *)cfg->kick_signal_addr;
+        *kick = cfg->kickoff_value;
+    }
+
+    /* 9. Wait for GPU completion */
+    wait_signal(cfg->timeline_signal_addr, cfg->last_tl_value);
 
     clock_gettime(CLOCK_MONOTONIC, &t1);
 

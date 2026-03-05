@@ -1,13 +1,21 @@
 #!/usr/bin/env python3
 """YOLOv8 live camera demo — PyTorch CUDA Graphs on Jetson AGX Orin.
 
+Uses a pure-PyTorch YOLOv8-n port with CUDA Graphs for zero-overhead
+GPU replay. Loads the same tinygrad safetensor weights.
+
+Benchmark results (YOLOv8-n @ 320x320, Orin AGX 64GB MAXN):
+  - CUDA Graphs:   6.3 ms / 158 FPS
+  - torch.compile: 12.6 ms / 79 FPS
+  - Eager:         23.2 ms / 43 FPS
+
 Usage:
   cd ~/agx-orin-dev-kit/examples/yolo-camera && nix develop
   python3 demo_yolov8_pytorch.py --stream
 
-SSH tunnel on laptop:
+SSH tunnel (view in browser on laptop):
   ssh -L 9999:localhost:8090 Orin-AGX-NixOS
-  Open http://localhost:9999/
+  open http://localhost:9999/
 """
 import argparse, sys, time, os, threading
 from pathlib import Path
@@ -123,8 +131,29 @@ def postprocess_pytorch(output, conf_thresh=0.25, iou_thresh=0.45):
     y2 = boxes_xywh[:, 1] + boxes_xywh[:, 3] / 2
     boxes_xyxy = torch.stack((x1, y1, x2, y2), dim=1)
 
-    # NMS
-    from torchvision.ops import nms
+    # NMS (pure-torch fallback — avoids torchvision source build on Jetson)
+    try:
+        from torchvision.ops import nms
+    except ImportError:
+        def nms(boxes, scores, iou_threshold):
+            order = scores.argsort(descending=True)
+            keep = []
+            while order.numel() > 0:
+                i = order[0].item()
+                keep.append(i)
+                if order.numel() == 1:
+                    break
+                rest = order[1:]
+                xx1 = torch.clamp(boxes[rest, 0], min=boxes[i, 0].item())
+                yy1 = torch.clamp(boxes[rest, 1], min=boxes[i, 1].item())
+                xx2 = torch.clamp(boxes[rest, 2], max=boxes[i, 2].item())
+                yy2 = torch.clamp(boxes[rest, 3], max=boxes[i, 3].item())
+                inter = torch.clamp(xx2 - xx1, min=0) * torch.clamp(yy2 - yy1, min=0)
+                areas_i = (boxes[i, 2] - boxes[i, 0]) * (boxes[i, 3] - boxes[i, 1])
+                areas_rest = (boxes[rest, 2] - boxes[rest, 0]) * (boxes[rest, 3] - boxes[rest, 1])
+                iou = inter / (areas_i + areas_rest - inter + 1e-6)
+                order = rest[iou <= iou_threshold]
+            return torch.tensor(keep, dtype=torch.long, device=boxes.device)
     keep = nms(boxes_xyxy, max_scores, iou_thresh)
     keep = keep[:300]
 

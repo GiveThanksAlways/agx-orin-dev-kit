@@ -106,4 +106,11 @@ void hot_path_benchmark(
  */
 void hot_path_init(hot_path_config_t *cfg);
 
+/*
+ * Submit one HCQ graph (patch + submit + wait + kick).
+ * No memcpy — caller handles H2D/D2H.
+ * Returns: latency in nanoseconds.
+ */
+uint64_t hot_path_submit_graph(hot_path_config_t *cfg);
+
 #endif /* HOT_PATH_H */
