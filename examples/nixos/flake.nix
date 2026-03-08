@@ -68,6 +68,7 @@
             services.llama-cpp-server = {
               enable = true;
               model = "/models/Qwen3-Coder-Next-Q4_K_M.gguf";
+              port = 5000;
               nGpuLayers = 99;
               contextSize = 4096;
               threads = 8;

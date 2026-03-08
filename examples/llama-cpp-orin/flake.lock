@@ -20,38 +20,20 @@
     },
     "llama-cpp": {
       "inputs": {
-        "llama-cpp": "llama-cpp_2",
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "path": "./llama-flake",
-        "type": "path"
-      },
-      "original": {
-        "path": "./llama-flake",
-        "type": "path"
-      },
-      "parent": []
-    },
-    "llama-cpp_2": {
-      "inputs": {
         "flake-parts": "flake-parts",
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1770510000,
-        "narHash": "sha256-yJheGLvgSHdGBqhJY74o/bfTqM+a+Ny7b+Mr6X14shY=",
+        "lastModified": 1772869270,
+        "narHash": "sha256-gFgyHDImflGsu5mGluWhtkudb+FNx8XBGZKXSQDlHxc=",
         "owner": "ggml-org",
         "repo": "llama.cpp",
-        "rev": "9a5f57795c01c6e67a53eeedeae67ed63aaf7f8e",
+        "rev": "c5a778891ba0ddbd4cbb507c823f970595b1adc2",
         "type": "github"
       },
       "original": {
         "owner": "ggml-org",
         "repo": "llama.cpp",
-        "rev": "9a5f57795c01c6e67a53eeedeae67ed63aaf7f8e",
         "type": "github"
       }
     },
@@ -83,26 +65,9 @@
         "url": "https://github.com/NixOS/nixpkgs/archive/cc2f28000298e1269cea6612cd06ec9979dd5d7f.tar.gz"
       }
     },
-    "nixpkgs_2": {
-      "locked": {
-        "lastModified": 1770617025,
-        "narHash": "sha256-1jZvgZoAagZZB6NwGRv2T2ezPy+X6EFDsJm+YSlsvEs=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "2db38e08fdadcc0ce3232f7279bab59a15b94482",
-        "type": "github"
-      },
-      "original": {
-        "owner": "NixOS",
-        "ref": "nixos-25.11",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
     "root": {
       "inputs": {
-        "llama-cpp": "llama-cpp",
-        "nixpkgs": "nixpkgs_2"
+        "llama-cpp": "llama-cpp"
       }
     }
   },

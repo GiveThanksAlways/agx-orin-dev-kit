@@ -21,3 +21,6 @@ onnx/
 logs/
 *.onnx
 .direnv/
+
+*.jpg
+*.mp4
