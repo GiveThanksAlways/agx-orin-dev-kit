@@ -1,0 +1,12 @@
+[package]
+name = "cuda-graph-replay"
+version = "0.1.0"
+edition = "2021"
+description = "Rust CUDA graph capture and replay for TensorRT engines — lower-latency alternative to per-call enqueueV3"
+license = "MIT"
+
+[dependencies]
+
+[build-dependencies]
+
+[dev-dependencies]
