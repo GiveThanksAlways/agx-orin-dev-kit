@@ -172,7 +172,11 @@
           ./modules/performance.nix
           ./modules/sensors.nix
           ({ ... }: {
-            services.orin-perf.enable = true;
+            services.orin-perf = {
+              enable = true;
+              powerMode = "50W";
+              lockClocks = false;
+            };
             services.orin-sensors = {
               enable = true;
               imuI2cBus = 7;

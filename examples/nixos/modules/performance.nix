@@ -54,16 +54,17 @@ in
           let
             modeId = {
               "MAXN" = "0";
-              "30W" = "1";
-              "50W" = "2";
+              "30W" = "2";
+              "50W" = "3";
             }.${cfg.powerMode};
+            nvpmodelBin = "${pkgs.nvidia-jetpack.l4t-nvpmodel}/bin/nvpmodel";
+            jetsonClocksBin = "${pkgs.nvidia-jetpack.l4t-tools}/bin/jetson_clocks";
           in
           pkgs.writeShellScript "set-power-mode" ''
-            export PATH="/usr/sbin:/usr/bin:$PATH"
-            nvpmodel -m ${modeId} || true
+            ${nvpmodelBin} -m ${modeId} || true
             ${lib.optionalString cfg.lockClocks ''
               sleep 2
-              jetson_clocks || true
+              ${jetsonClocksBin} || true
             ''}
           '';
       };
