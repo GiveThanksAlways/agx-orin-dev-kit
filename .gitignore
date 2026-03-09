@@ -29,3 +29,11 @@ logs/
 examples/yolo-camera/outputs/
 examples/yolo-camera/outputs_warmup/
 examples/yolo-camera/*.mp4
+
+*.bin
+
+# Rust build artifacts
+target/
+
+# Compiled C/C++ benchmarks
+examples/learned-inertial-odometry/bench_trt_variants

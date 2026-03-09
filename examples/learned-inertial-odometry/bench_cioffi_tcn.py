@@ -590,6 +590,501 @@ def bench_tensorrt_full(weights, use_fp16, warmup, n_iters, use_tf32=False):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# Backend: TensorRT + Tegra Zero-Copy (cudaMallocManaged)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def bench_tensorrt_zerocopy(weights, use_fp16, warmup, n_iters, use_tf32=False):
+    """Benchmark TensorRT with Tegra zero-copy (cudaMallocManaged).
+
+    On Jetson (Tegra), CPU and GPU share the same DRAM. Using
+    cudaMallocManaged instead of cudaMalloc eliminates the need for
+    cudaMemcpyAsync H2D/D2H — we just memcpy directly into managed
+    memory and the GPU reads it in-place.
+
+    This tests the concept behind libinfer's infer_zerocopy() from Task 1.
+    """
+    import ctypes
+
+    ONNX_DIR.mkdir(exist_ok=True)
+    prec = "fp16" if use_fp16 else "fp32"
+    onnx_path = str(ONNX_DIR / f"cioffi_tcn_{prec}.onnx")
+    engine_path = str(ONNX_DIR / f"cioffi_tcn_{prec}.engine")
+
+    if not os.path.exists(onnx_path):
+        export_onnx(onnx_path, weights, use_fp16=False)
+
+    try:
+        import tensorrt as trt
+    except ImportError:
+        trt_path = os.environ.get("TENSORRT_PATH", "")
+        trt_lib = os.path.join(trt_path, "lib", "libnvinfer.so")
+        if os.path.exists(trt_lib):
+            ctypes.CDLL(trt_lib, mode=ctypes.RTLD_GLOBAL)
+        try:
+            import tensorrt as trt
+        except ImportError:
+            print("  ERROR: TensorRT Python bindings not available")
+            return None, 0, None
+
+    TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
+
+    if not os.path.exists(engine_path):
+        print(f"  Building TRT engine ({prec})...")
+        builder = trt.Builder(TRT_LOGGER)
+        network = builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))
+        parser = trt.OnnxParser(network, TRT_LOGGER)
+        with open(onnx_path, "rb") as f:
+            if not parser.parse(f.read()):
+                for i in range(parser.num_errors):
+                    print(f"  ONNX parse error: {parser.get_error(i)}")
+                return None, 0, None
+        config = builder.create_builder_config()
+        config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 1 << 30)
+        if use_fp16:
+            config.set_flag(trt.BuilderFlag.FP16)
+        if not use_tf32:
+            config.clear_flag(trt.BuilderFlag.TF32)
+        engine_bytes = builder.build_serialized_network(network, config)
+        if engine_bytes is None:
+            print("  ERROR: TRT engine build failed")
+            return None, 0, None
+        with open(engine_path, "wb") as f:
+            f.write(engine_bytes)
+
+    runtime = trt.Runtime(TRT_LOGGER)
+    with open(engine_path, "rb") as f:
+        engine = runtime.deserialize_cuda_engine(f.read())
+    context = engine.create_execution_context()
+
+    np_dtype = np.float16 if use_fp16 else np.float32
+    input_shape = (1, INPUT_DIM, SEQ_LEN)
+    output_shape = (1, OUTPUT_DIM)
+    input_nbytes = int(np.prod(input_shape) * 4)
+    output_nbytes = int(np.prod(output_shape) * 4)
+
+    # Key difference: use cudaMallocManaged instead of cudaMalloc
+    cudart = ctypes.CDLL("libcudart.so", mode=ctypes.RTLD_GLOBAL)
+    d_input = ctypes.c_void_p()
+    d_output = ctypes.c_void_p()
+    # cudaMallocManaged flags: cudaMemAttachGlobal = 1
+    cudart.cudaMallocManaged(ctypes.byref(d_input), input_nbytes, 1)
+    cudart.cudaMallocManaged(ctypes.byref(d_output), output_nbytes, 1)
+
+    stream = ctypes.c_void_p()
+    cudart.cudaStreamCreate(ctypes.byref(stream))
+
+    context.set_tensor_address("imu_data", d_input.value)
+    context.set_tensor_address("displacement", d_output.value)
+
+    pool = generate_input_pool(warmup + n_iters)
+
+    # Create numpy views over managed memory (zero-copy!)
+    inp_arr = (ctypes.c_float * (input_nbytes // 4)).from_address(d_input.value)
+    out_arr = (ctypes.c_float * (output_nbytes // 4)).from_address(d_output.value)
+    h_input_view = np.ctypeslib.as_array(inp_arr)
+    h_output_view = np.ctypeslib.as_array(out_arr)
+
+    # Warmup
+    for i in range(warmup):
+        h_input_view[:] = pool[i:i+1].astype(np.float32).ravel()
+        context.execute_async_v3(stream.value)
+        cudart.cudaStreamSynchronize(stream)
+
+    # Benchmark: no cudaMemcpyAsync at all — direct CPU write to managed memory
+    times = []
+    for i in range(n_iters):
+        h_input_view[:] = pool[warmup + i:warmup + i + 1].astype(np.float32).ravel()
+        t0 = time.perf_counter()
+        context.execute_async_v3(stream.value)
+        cudart.cudaStreamSynchronize(stream)
+        t1 = time.perf_counter()
+        times.append((t1 - t0) * 1e6)
+
+    result = np.array(h_output_view[:OUTPUT_DIM], dtype=np.float32).astype(np_dtype)
+
+    cudart.cudaFree(d_input)
+    cudart.cudaFree(d_output)
+    cudart.cudaStreamDestroy(stream)
+
+    param_count = _count_params()
+    return times, param_count, result
+
+
+def bench_tensorrt_zerocopy_full(weights, use_fp16, warmup, n_iters, use_tf32=False):
+    """TRT zero-copy, full round-trip timing (memcpy + compute + read-back).
+
+    This is the apples-to-apples comparison with the stock TRT full path,
+    showing the benefit of eliminating cudaMemcpyAsync on Tegra.
+    """
+    import ctypes
+
+    ONNX_DIR.mkdir(exist_ok=True)
+    prec = "fp16" if use_fp16 else "fp32"
+    onnx_path = str(ONNX_DIR / f"cioffi_tcn_{prec}.onnx")
+    engine_path = str(ONNX_DIR / f"cioffi_tcn_{prec}.engine")
+
+    if not os.path.exists(onnx_path):
+        export_onnx(onnx_path, weights, use_fp16=False)
+
+    try:
+        import tensorrt as trt
+    except ImportError:
+        trt_path = os.environ.get("TENSORRT_PATH", "")
+        trt_lib = os.path.join(trt_path, "lib", "libnvinfer.so")
+        if os.path.exists(trt_lib):
+            ctypes.CDLL(trt_lib, mode=ctypes.RTLD_GLOBAL)
+        try:
+            import tensorrt as trt
+        except ImportError:
+            print("  ERROR: TensorRT Python bindings not available")
+            return None, 0, None
+
+    TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
+
+    if not os.path.exists(engine_path):
+        print(f"  Building TRT engine ({prec})...")
+        builder = trt.Builder(TRT_LOGGER)
+        network = builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))
+        parser = trt.OnnxParser(network, TRT_LOGGER)
+        with open(onnx_path, "rb") as f:
+            if not parser.parse(f.read()):
+                return None, 0, None
+        config = builder.create_builder_config()
+        config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 1 << 30)
+        if use_fp16:
+            config.set_flag(trt.BuilderFlag.FP16)
+        if not use_tf32:
+            config.clear_flag(trt.BuilderFlag.TF32)
+        engine_bytes = builder.build_serialized_network(network, config)
+        if engine_bytes is None:
+            return None, 0, None
+        with open(engine_path, "wb") as f:
+            f.write(engine_bytes)
+
+    runtime = trt.Runtime(TRT_LOGGER)
+    with open(engine_path, "rb") as f:
+        engine = runtime.deserialize_cuda_engine(f.read())
+    context = engine.create_execution_context()
+
+    np_dtype = np.float16 if use_fp16 else np.float32
+    input_shape = (1, INPUT_DIM, SEQ_LEN)
+    output_shape = (1, OUTPUT_DIM)
+    input_nbytes = int(np.prod(input_shape) * 4)
+    output_nbytes = int(np.prod(output_shape) * 4)
+
+    cudart = ctypes.CDLL("libcudart.so", mode=ctypes.RTLD_GLOBAL)
+    d_input = ctypes.c_void_p()
+    d_output = ctypes.c_void_p()
+    cudart.cudaMallocManaged(ctypes.byref(d_input), input_nbytes, 1)
+    cudart.cudaMallocManaged(ctypes.byref(d_output), output_nbytes, 1)
+
+    stream = ctypes.c_void_p()
+    cudart.cudaStreamCreate(ctypes.byref(stream))
+
+    context.set_tensor_address("imu_data", d_input.value)
+    context.set_tensor_address("displacement", d_output.value)
+
+    pool = generate_input_pool(warmup + n_iters)
+
+    inp_arr = (ctypes.c_float * (input_nbytes // 4)).from_address(d_input.value)
+    out_arr = (ctypes.c_float * (output_nbytes // 4)).from_address(d_output.value)
+    h_input_view = np.ctypeslib.as_array(inp_arr)
+    h_output_view = np.ctypeslib.as_array(out_arr)
+
+    for i in range(warmup):
+        h_input_view[:] = pool[i:i+1].astype(np.float32).ravel()
+        context.execute_async_v3(stream.value)
+        cudart.cudaStreamSynchronize(stream)
+
+    # Full round-trip: write input + compute + read output
+    times = []
+    for i in range(n_iters):
+        t0 = time.perf_counter()
+        h_input_view[:] = pool[warmup + i:warmup + i + 1].astype(np.float32).ravel()
+        context.execute_async_v3(stream.value)
+        cudart.cudaStreamSynchronize(stream)
+        _ = np.array(h_output_view[:OUTPUT_DIM], dtype=np.float32)
+        t1 = time.perf_counter()
+        times.append((t1 - t0) * 1e6)
+
+    result = np.array(h_output_view[:OUTPUT_DIM], dtype=np.float32).astype(np_dtype)
+
+    cudart.cudaFree(d_input)
+    cudart.cudaFree(d_output)
+    cudart.cudaStreamDestroy(stream)
+
+    param_count = _count_params()
+    return times, param_count, result
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Backend: TensorRT + CUDA Graphs (capture enqueueV3, replay with cudaGraphLaunch)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def bench_tensorrt_cuda_graph(weights, use_fp16, warmup, n_iters, use_tf32=False):
+    """Benchmark TensorRT with CUDA graph capture and replay.
+
+    Captures enqueueV3 into a CUDA graph on the first call, then replays
+    it with cudaGraphLaunch — eliminating per-call runtime dispatch overhead.
+
+    This tests the concept behind the cuda-graph-replay Rust crate (Task 4).
+    """
+    import ctypes
+
+    ONNX_DIR.mkdir(exist_ok=True)
+    prec = "fp16" if use_fp16 else "fp32"
+    onnx_path = str(ONNX_DIR / f"cioffi_tcn_{prec}.onnx")
+    engine_path = str(ONNX_DIR / f"cioffi_tcn_{prec}.engine")
+
+    if not os.path.exists(onnx_path):
+        export_onnx(onnx_path, weights, use_fp16=False)
+
+    try:
+        import tensorrt as trt
+    except ImportError:
+        trt_path = os.environ.get("TENSORRT_PATH", "")
+        trt_lib = os.path.join(trt_path, "lib", "libnvinfer.so")
+        if os.path.exists(trt_lib):
+            ctypes.CDLL(trt_lib, mode=ctypes.RTLD_GLOBAL)
+        try:
+            import tensorrt as trt
+        except ImportError:
+            print("  ERROR: TensorRT Python bindings not available")
+            return None, 0, None
+
+    TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
+
+    if not os.path.exists(engine_path):
+        print(f"  Building TRT engine ({prec})...")
+        builder = trt.Builder(TRT_LOGGER)
+        network = builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))
+        parser = trt.OnnxParser(network, TRT_LOGGER)
+        with open(onnx_path, "rb") as f:
+            if not parser.parse(f.read()):
+                return None, 0, None
+        config = builder.create_builder_config()
+        config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 1 << 30)
+        if use_fp16:
+            config.set_flag(trt.BuilderFlag.FP16)
+        if not use_tf32:
+            config.clear_flag(trt.BuilderFlag.TF32)
+        engine_bytes = builder.build_serialized_network(network, config)
+        if engine_bytes is None:
+            return None, 0, None
+        with open(engine_path, "wb") as f:
+            f.write(engine_bytes)
+
+    runtime = trt.Runtime(TRT_LOGGER)
+    with open(engine_path, "rb") as f:
+        engine = runtime.deserialize_cuda_engine(f.read())
+    context = engine.create_execution_context()
+
+    np_dtype = np.float16 if use_fp16 else np.float32
+    input_shape = (1, INPUT_DIM, SEQ_LEN)
+    output_shape = (1, OUTPUT_DIM)
+    input_nbytes = int(np.prod(input_shape) * 4)
+    output_nbytes = int(np.prod(output_shape) * 4)
+
+    cudart = ctypes.CDLL("libcudart.so", mode=ctypes.RTLD_GLOBAL)
+    d_input = ctypes.c_void_p()
+    d_output = ctypes.c_void_p()
+    cudart.cudaMalloc(ctypes.byref(d_input), input_nbytes)
+    cudart.cudaMalloc(ctypes.byref(d_output), output_nbytes)
+
+    stream = ctypes.c_void_p()
+    cudart.cudaStreamCreate(ctypes.byref(stream))
+
+    context.set_tensor_address("imu_data", d_input.value)
+    context.set_tensor_address("displacement", d_output.value)
+
+    pool = generate_input_pool(warmup + n_iters)
+    h_input = np.zeros(input_shape, dtype=np.float32)
+    h_output = np.zeros(output_shape, dtype=np.float32)
+
+    # Standard warmup first (needed before capture)
+    for i in range(3):
+        h_input[:] = pool[i:i+1].astype(np.float32)
+        cudart.cudaMemcpyAsync(d_input, h_input.ctypes.data, input_nbytes, 1, stream)
+        context.execute_async_v3(stream.value)
+        cudart.cudaMemcpyAsync(h_output.ctypes.data, d_output, output_nbytes, 2, stream)
+        cudart.cudaStreamSynchronize(stream)
+
+    # Capture CUDA graph
+    # cudaStreamCaptureMode: cudaStreamCaptureModeGlobal = 0
+    graph = ctypes.c_void_p()
+    graph_exec = ctypes.c_void_p()
+
+    cudart.cudaStreamBeginCapture(stream, 0)
+    context.execute_async_v3(stream.value)
+    cudart.cudaStreamEndCapture(stream, ctypes.byref(graph))
+    cudart.cudaGraphInstantiate(ctypes.byref(graph_exec), graph, 0)
+
+    print("  CUDA graph captured successfully")
+
+    # Warmup with graph replay
+    for i in range(warmup):
+        h_input[:] = pool[i:i+1].astype(np.float32)
+        cudart.cudaMemcpyAsync(d_input, h_input.ctypes.data, input_nbytes, 1, stream)
+        cudart.cudaGraphLaunch(graph_exec, stream)
+        cudart.cudaStreamSynchronize(stream)
+
+    # Benchmark: H2D then graph launch (GPU-only timing)
+    times = []
+    for i in range(n_iters):
+        h_input[:] = pool[warmup + i:warmup + i + 1].astype(np.float32)
+        cudart.cudaMemcpyAsync(d_input, h_input.ctypes.data, input_nbytes, 1, stream)
+        cudart.cudaStreamSynchronize(stream)
+        t0 = time.perf_counter()
+        cudart.cudaGraphLaunch(graph_exec, stream)
+        cudart.cudaStreamSynchronize(stream)
+        t1 = time.perf_counter()
+        times.append((t1 - t0) * 1e6)
+
+    cudart.cudaMemcpyAsync(h_output.ctypes.data, d_output, output_nbytes, 2, stream)
+    cudart.cudaStreamSynchronize(stream)
+
+    # Cleanup
+    cudart.cudaGraphExecDestroy(graph_exec)
+    cudart.cudaGraphDestroy(graph)
+    cudart.cudaFree(d_input)
+    cudart.cudaFree(d_output)
+    cudart.cudaStreamDestroy(stream)
+
+    param_count = _count_params()
+    result = h_output.flatten().astype(np_dtype)
+    return times, param_count, result
+
+
+def bench_tensorrt_zerocopy_cuda_graph(weights, use_fp16, warmup, n_iters, use_tf32=False):
+    """TRT + Tegra zero-copy + CUDA graph: the full optimization stack.
+
+    Combines both optimizations:
+      - cudaMallocManaged (no H2D/D2H copies)
+      - CUDA graph capture (no per-call enqueueV3 dispatch)
+
+    This shows the theoretical best-case for TensorRT on Tegra.
+    """
+    import ctypes
+
+    ONNX_DIR.mkdir(exist_ok=True)
+    prec = "fp16" if use_fp16 else "fp32"
+    onnx_path = str(ONNX_DIR / f"cioffi_tcn_{prec}.onnx")
+    engine_path = str(ONNX_DIR / f"cioffi_tcn_{prec}.engine")
+
+    if not os.path.exists(onnx_path):
+        export_onnx(onnx_path, weights, use_fp16=False)
+
+    try:
+        import tensorrt as trt
+    except ImportError:
+        trt_path = os.environ.get("TENSORRT_PATH", "")
+        trt_lib = os.path.join(trt_path, "lib", "libnvinfer.so")
+        if os.path.exists(trt_lib):
+            ctypes.CDLL(trt_lib, mode=ctypes.RTLD_GLOBAL)
+        try:
+            import tensorrt as trt
+        except ImportError:
+            print("  ERROR: TensorRT Python bindings not available")
+            return None, 0, None
+
+    TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
+
+    if not os.path.exists(engine_path):
+        print(f"  Building TRT engine ({prec})...")
+        builder = trt.Builder(TRT_LOGGER)
+        network = builder.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))
+        parser = trt.OnnxParser(network, TRT_LOGGER)
+        with open(onnx_path, "rb") as f:
+            if not parser.parse(f.read()):
+                return None, 0, None
+        config = builder.create_builder_config()
+        config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 1 << 30)
+        if use_fp16:
+            config.set_flag(trt.BuilderFlag.FP16)
+        if not use_tf32:
+            config.clear_flag(trt.BuilderFlag.TF32)
+        engine_bytes = builder.build_serialized_network(network, config)
+        if engine_bytes is None:
+            return None, 0, None
+        with open(engine_path, "wb") as f:
+            f.write(engine_bytes)
+
+    runtime = trt.Runtime(TRT_LOGGER)
+    with open(engine_path, "rb") as f:
+        engine = runtime.deserialize_cuda_engine(f.read())
+    context = engine.create_execution_context()
+
+    np_dtype = np.float16 if use_fp16 else np.float32
+    input_shape = (1, INPUT_DIM, SEQ_LEN)
+    output_shape = (1, OUTPUT_DIM)
+    input_nbytes = int(np.prod(input_shape) * 4)
+    output_nbytes = int(np.prod(output_shape) * 4)
+
+    cudart = ctypes.CDLL("libcudart.so", mode=ctypes.RTLD_GLOBAL)
+    d_input = ctypes.c_void_p()
+    d_output = ctypes.c_void_p()
+    cudart.cudaMallocManaged(ctypes.byref(d_input), input_nbytes, 1)
+    cudart.cudaMallocManaged(ctypes.byref(d_output), output_nbytes, 1)
+
+    stream = ctypes.c_void_p()
+    cudart.cudaStreamCreate(ctypes.byref(stream))
+
+    context.set_tensor_address("imu_data", d_input.value)
+    context.set_tensor_address("displacement", d_output.value)
+
+    pool = generate_input_pool(warmup + n_iters)
+
+    inp_arr = (ctypes.c_float * (input_nbytes // 4)).from_address(d_input.value)
+    out_arr = (ctypes.c_float * (output_nbytes // 4)).from_address(d_output.value)
+    h_input_view = np.ctypeslib.as_array(inp_arr)
+    h_output_view = np.ctypeslib.as_array(out_arr)
+
+    # Standard warmup before capture
+    for i in range(3):
+        h_input_view[:] = pool[i:i+1].astype(np.float32).ravel()
+        context.execute_async_v3(stream.value)
+        cudart.cudaStreamSynchronize(stream)
+
+    # Capture CUDA graph
+    graph = ctypes.c_void_p()
+    graph_exec = ctypes.c_void_p()
+
+    cudart.cudaStreamBeginCapture(stream, 0)
+    context.execute_async_v3(stream.value)
+    cudart.cudaStreamEndCapture(stream, ctypes.byref(graph))
+    cudart.cudaGraphInstantiate(ctypes.byref(graph_exec), graph, 0)
+
+    print("  CUDA graph captured (zero-copy + graph replay)")
+
+    # Warmup with graph replay
+    for i in range(warmup):
+        h_input_view[:] = pool[i:i+1].astype(np.float32).ravel()
+        cudart.cudaGraphLaunch(graph_exec, stream)
+        cudart.cudaStreamSynchronize(stream)
+
+    # Benchmark: direct write to managed memory + graph launch
+    times = []
+    for i in range(n_iters):
+        h_input_view[:] = pool[warmup + i:warmup + i + 1].astype(np.float32).ravel()
+        t0 = time.perf_counter()
+        cudart.cudaGraphLaunch(graph_exec, stream)
+        cudart.cudaStreamSynchronize(stream)
+        t1 = time.perf_counter()
+        times.append((t1 - t0) * 1e6)
+
+    result = np.array(h_output_view[:OUTPUT_DIM], dtype=np.float32).astype(np_dtype)
+
+    cudart.cudaGraphExecDestroy(graph_exec)
+    cudart.cudaGraphDestroy(graph)
+    cudart.cudaFree(d_input)
+    cudart.cudaFree(d_output)
+    cudart.cudaStreamDestroy(stream)
+
+    param_count = _count_params()
+    return times, param_count, result
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # Backend: PyTorch (eager + CUDA Graphs)
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -668,7 +1163,7 @@ def bench_pytorch(weights, use_fp16, warmup, n_iters):
             times_graph.append((t1 - t0) * 1e6)
 
         results["cuda_graphs"] = times_graph
-        result_val = static_out.cpu().numpy().flatten().astype(np_dtype)
+        result_val = static_out.detach().cpu().numpy().flatten().astype(np_dtype)
     else:
         # CPU-only PyTorch
         model = model.float()  # CPU doesn't do FP16 well
@@ -743,7 +1238,9 @@ def print_summary_table(all_results, param_count):
 def main():
     parser = argparse.ArgumentParser(description="Benchmark Cioffi TCN")
     parser.add_argument("--backend", type=str, default="all",
-                        choices=["all", "nv", "cuda", "hotpath", "trt", "pytorch"],
+                        choices=["all", "nv", "cuda", "hotpath", "trt",
+                                "trt-zerocopy", "trt-graph", "trt-zc-graph",
+                                "pytorch"],
                         help="Which backend(s) to benchmark")
     parser.add_argument("--precision", type=str, default="fp16",
                         choices=["fp16", "fp32"],
@@ -773,7 +1270,8 @@ def main():
     all_results = {}
     param_count = _count_params()
 
-    backends = (["nv", "cuda", "hotpath", "trt", "pytorch"]
+    backends = (["nv", "cuda", "hotpath", "trt", "trt-zerocopy",
+                 "trt-graph", "trt-zc-graph", "pytorch"]
                 if args.backend == "all" else [args.backend])
 
     for backend in backends:
@@ -834,6 +1332,55 @@ def main():
                 if times_full is not None:
                     s = print_result(f"TensorRT full round-trip ({pc:,} params)", times_full)
                     all_results[f"TensorRT full {prec_label}"] = s
+            except Exception as e:
+                print(f"  FAILED: {e}")
+                import traceback; traceback.print_exc()
+
+        elif backend == "trt-zerocopy":
+            # Zero-copy GPU-only timing
+            print(f"  [TRT Zero-Copy {prec_label} (GPU-only timing)]")
+            try:
+                times, pc, result = bench_tensorrt_zerocopy(
+                    weights, use_fp16, args.warmup, args.iters)
+                if times is not None:
+                    s = print_result(f"TRT Zero-Copy GPU-only ({pc:,} params)", times)
+                    all_results[f"TRT Zero-Copy GPU-only {prec_label}"] = s
+            except Exception as e:
+                print(f"  FAILED: {e}")
+                import traceback; traceback.print_exc()
+
+            # Zero-copy full round-trip
+            print(f"\n  [TRT Zero-Copy {prec_label} (full round-trip)]")
+            try:
+                times_full, _, _ = bench_tensorrt_zerocopy_full(
+                    weights, use_fp16, args.warmup, args.iters)
+                if times_full is not None:
+                    s = print_result(f"TRT Zero-Copy full ({pc:,} params)", times_full)
+                    all_results[f"TRT Zero-Copy full {prec_label}"] = s
+            except Exception as e:
+                print(f"  FAILED: {e}")
+                import traceback; traceback.print_exc()
+
+        elif backend == "trt-graph":
+            print(f"  [TRT + CUDA Graph {prec_label}]")
+            try:
+                times, pc, result = bench_tensorrt_cuda_graph(
+                    weights, use_fp16, args.warmup, args.iters)
+                if times is not None:
+                    s = print_result(f"TRT CUDA Graph ({pc:,} params)", times)
+                    all_results[f"TRT CUDA Graph {prec_label}"] = s
+            except Exception as e:
+                print(f"  FAILED: {e}")
+                import traceback; traceback.print_exc()
+
+        elif backend == "trt-zc-graph":
+            print(f"  [TRT Zero-Copy + CUDA Graph {prec_label}]")
+            try:
+                times, pc, result = bench_tensorrt_zerocopy_cuda_graph(
+                    weights, use_fp16, args.warmup, args.iters)
+                if times is not None:
+                    s = print_result(f"TRT ZC+Graph ({pc:,} params)", times)
+                    all_results[f"TRT ZC+Graph {prec_label}"] = s
             except Exception as e:
                 print(f"  FAILED: {e}")
                 import traceback; traceback.print_exc()
