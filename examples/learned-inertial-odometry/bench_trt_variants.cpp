@@ -1,11 +1,13 @@
 /**
  * bench_trt_variants.cpp — Benchmark TensorRT inference variants on Jetson Orin
  *
- * Tests 4 TRT configurations on the Cioffi TCN (250K params):
+ * Tests 4 TRT configurations on any TRT engine:
  *   1. Stock:           cudaMemcpyAsync H2D → enqueueV3 → cudaMemcpyAsync D2H
  *   2. Zero-Copy:       cudaMallocManaged → memcpy → enqueueV3 (no cudaMemcpyAsync)
  *   3. CUDA Graph:      cudaMalloc + cudaGraphLaunch (captured enqueueV3)
  *   4. ZC + Graph:      cudaMallocManaged + cudaGraphLaunch (both optimizations)
+ *
+ * Auto-detects tensor names and sizes from the engine file.
  *
  * Compile (inside nix develop):
  *   clang++ -O3 -std=c++17 bench_trt_variants.cpp \
@@ -107,6 +109,66 @@ size_t tensor_bytes(nvinfer1::ICudaEngine *engine, const char *name) {
     return n * elem;
 }
 
+// ─── Engine I/O discovery ─────────────────────────────────────────────────────
+struct EngineIO {
+    std::vector<std::string> input_names;
+    std::vector<size_t> input_bytes;
+    std::vector<std::string> output_names;
+    std::vector<size_t> output_bytes;
+    size_t total_input_bytes = 0;
+    size_t total_output_bytes = 0;
+};
+
+EngineIO discover_io(nvinfer1::ICudaEngine *engine) {
+    EngineIO io;
+    for (int i = 0; i < engine->getNbIOTensors(); i++) {
+        const char *name = engine->getIOTensorName(i);
+        size_t bytes = tensor_bytes(engine, name);
+        auto mode = engine->getTensorIOMode(name);
+        if (mode == nvinfer1::TensorIOMode::kINPUT) {
+            io.input_names.push_back(name);
+            io.input_bytes.push_back(bytes);
+            io.total_input_bytes += bytes;
+        } else {
+            io.output_names.push_back(name);
+            io.output_bytes.push_back(bytes);
+            io.total_output_bytes += bytes;
+        }
+    }
+    return io;
+}
+
+// Helper: allocate all I/O buffers and set tensor addresses on context
+struct Buffers {
+    std::vector<void *> ptrs;   // one per I/O tensor, same order as engine
+    std::vector<size_t> sizes;
+};
+
+Buffers alloc_buffers(nvinfer1::ICudaEngine *engine, nvinfer1::IExecutionContext *ctx,
+                      cudaStream_t stream, bool managed) {
+    Buffers b;
+    for (int i = 0; i < engine->getNbIOTensors(); i++) {
+        const char *name = engine->getIOTensorName(i);
+        size_t bytes = tensor_bytes(engine, name);
+        void *ptr;
+        if (managed) {
+            CHECK_CUDA(cudaMallocManaged(&ptr, bytes));
+        } else {
+            CHECK_CUDA(cudaMalloc(&ptr, bytes));
+        }
+        CHECK_CUDA(cudaMemset(ptr, 0, bytes));
+        ctx->setTensorAddress(name, ptr);
+        b.ptrs.push_back(ptr);
+        b.sizes.push_back(bytes);
+    }
+    return b;
+}
+
+void free_buffers(Buffers &b) {
+    for (auto p : b.ptrs) cudaFree(p);
+    b.ptrs.clear();
+}
+
 // ─── JSON output helper ───────────────────────────────────────────────────────
 void print_json_stats(const char *label, Stats &s) {
     printf("    \"%s\": {\"median\": %.1f, \"mean\": %.1f, \"p99\": %.1f, "
@@ -117,54 +179,65 @@ void print_json_stats(const char *label, Stats &s) {
 // ═════════════════════════════════════════════════════════════════════════════
 // Variant 1: Stock TRT (cudaMalloc + cudaMemcpyAsync)
 // ═════════════════════════════════════════════════════════════════════════════
-Stats bench_stock(nvinfer1::ICudaEngine *engine, int warmup, int n_iters,
-                  bool full_roundtrip) {
+Stats bench_stock(nvinfer1::ICudaEngine *engine, const EngineIO &io,
+                  int warmup, int n_iters, bool full_roundtrip) {
     auto *ctx = engine->createExecutionContext();
-
-    const char *in_name = "imu_data";
-    const char *out_name = "displacement";
-    size_t in_bytes = tensor_bytes(engine, in_name);
-    size_t out_bytes = tensor_bytes(engine, out_name);
-
-    void *d_in, *d_out;
-    CHECK_CUDA(cudaMalloc(&d_in, in_bytes));
-    CHECK_CUDA(cudaMalloc(&d_out, out_bytes));
-
-    std::vector<float> h_in(in_bytes / sizeof(float), 0.1f);
-    std::vector<float> h_out(out_bytes / sizeof(float));
-
     cudaStream_t stream;
     CHECK_CUDA(cudaStreamCreate(&stream));
 
-    ctx->setTensorAddress(in_name, d_in);
-    ctx->setTensorAddress(out_name, d_out);
+    auto bufs = alloc_buffers(engine, ctx, stream, false);
+
+    // Host buffers for H2D/D2H
+    std::vector<std::vector<uint8_t>> h_inputs;
+    std::vector<std::vector<uint8_t>> h_outputs;
+    int buf_idx = 0;
+    for (size_t i = 0; i < io.input_names.size(); i++) {
+        h_inputs.emplace_back(io.input_bytes[i], 0);
+        buf_idx++;
+    }
+    for (size_t i = 0; i < io.output_names.size(); i++) {
+        h_outputs.emplace_back(io.output_bytes[i], 0);
+        buf_idx++;
+    }
 
     // Warmup
     for (int i = 0; i < warmup; i++) {
-        CHECK_CUDA(cudaMemcpyAsync(d_in, h_in.data(), in_bytes,
-                                    cudaMemcpyHostToDevice, stream));
+        buf_idx = 0;
+        for (size_t j = 0; j < io.input_names.size(); j++) {
+            CHECK_CUDA(cudaMemcpyAsync(bufs.ptrs[buf_idx], h_inputs[j].data(),
+                                        io.input_bytes[j], cudaMemcpyHostToDevice, stream));
+            buf_idx++;
+        }
         ctx->enqueueV3(stream);
-        CHECK_CUDA(cudaMemcpyAsync(h_out.data(), d_out, out_bytes,
-                                    cudaMemcpyDeviceToHost, stream));
+        for (size_t j = 0; j < io.output_names.size(); j++) {
+            CHECK_CUDA(cudaMemcpyAsync(h_outputs[j].data(), bufs.ptrs[buf_idx],
+                                        io.output_bytes[j], cudaMemcpyDeviceToHost, stream));
+            buf_idx++;
+        }
         CHECK_CUDA(cudaStreamSynchronize(stream));
     }
 
     // Benchmark
+    int in_start = 0;
+    int out_start = (int)io.input_names.size();
     std::vector<double> times(n_iters);
     for (int i = 0; i < n_iters; i++) {
         if (full_roundtrip) {
             auto t0 = std::chrono::high_resolution_clock::now();
-            CHECK_CUDA(cudaMemcpyAsync(d_in, h_in.data(), in_bytes,
-                                        cudaMemcpyHostToDevice, stream));
+            for (size_t j = 0; j < io.input_names.size(); j++)
+                CHECK_CUDA(cudaMemcpyAsync(bufs.ptrs[in_start + j], h_inputs[j].data(),
+                                            io.input_bytes[j], cudaMemcpyHostToDevice, stream));
             ctx->enqueueV3(stream);
-            CHECK_CUDA(cudaMemcpyAsync(h_out.data(), d_out, out_bytes,
-                                        cudaMemcpyDeviceToHost, stream));
+            for (size_t j = 0; j < io.output_names.size(); j++)
+                CHECK_CUDA(cudaMemcpyAsync(h_outputs[j].data(), bufs.ptrs[out_start + j],
+                                            io.output_bytes[j], cudaMemcpyDeviceToHost, stream));
             CHECK_CUDA(cudaStreamSynchronize(stream));
             auto t1 = std::chrono::high_resolution_clock::now();
             times[i] = std::chrono::duration<double, std::micro>(t1 - t0).count();
         } else {
-            CHECK_CUDA(cudaMemcpyAsync(d_in, h_in.data(), in_bytes,
-                                        cudaMemcpyHostToDevice, stream));
+            for (size_t j = 0; j < io.input_names.size(); j++)
+                CHECK_CUDA(cudaMemcpyAsync(bufs.ptrs[in_start + j], h_inputs[j].data(),
+                                            io.input_bytes[j], cudaMemcpyHostToDevice, stream));
             CHECK_CUDA(cudaStreamSynchronize(stream));
             auto t0 = std::chrono::high_resolution_clock::now();
             ctx->enqueueV3(stream);
@@ -174,42 +247,35 @@ Stats bench_stock(nvinfer1::ICudaEngine *engine, int warmup, int n_iters,
         }
     }
 
-    CHECK_CUDA(cudaFree(d_in));
-    CHECK_CUDA(cudaFree(d_out));
+    free_buffers(bufs);
     CHECK_CUDA(cudaStreamDestroy(stream));
     delete ctx;
-
     return compute_stats(times);
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Variant 2: Tegra Zero-Copy (cudaMallocManaged — no cudaMemcpyAsync)
 // ═════════════════════════════════════════════════════════════════════════════
-Stats bench_zerocopy(nvinfer1::ICudaEngine *engine, int warmup, int n_iters,
-                     bool full_roundtrip) {
+Stats bench_zerocopy(nvinfer1::ICudaEngine *engine, const EngineIO &io,
+                     int warmup, int n_iters, bool full_roundtrip) {
     auto *ctx = engine->createExecutionContext();
-
-    const char *in_name = "imu_data";
-    const char *out_name = "displacement";
-    size_t in_bytes = tensor_bytes(engine, in_name);
-    size_t out_bytes = tensor_bytes(engine, out_name);
-
-    // Key: use cudaMallocManaged instead of cudaMalloc
-    void *d_in, *d_out;
-    CHECK_CUDA(cudaMallocManaged(&d_in, in_bytes));
-    CHECK_CUDA(cudaMallocManaged(&d_out, out_bytes));
-
-    std::vector<float> h_in(in_bytes / sizeof(float), 0.1f);
-
     cudaStream_t stream;
     CHECK_CUDA(cudaStreamCreate(&stream));
 
-    ctx->setTensorAddress(in_name, d_in);
-    ctx->setTensorAddress(out_name, d_out);
+    auto bufs = alloc_buffers(engine, ctx, stream, true);
+
+    // Host staging buffer for inputs
+    std::vector<std::vector<uint8_t>> h_inputs;
+    for (size_t i = 0; i < io.input_names.size(); i++)
+        h_inputs.emplace_back(io.input_bytes[i], 0);
+
+    int in_start = 0;
+    int out_start = (int)io.input_names.size();
 
     // Warmup
     for (int i = 0; i < warmup; i++) {
-        std::memcpy(d_in, h_in.data(), in_bytes);
+        for (size_t j = 0; j < io.input_names.size(); j++)
+            std::memcpy(bufs.ptrs[in_start + j], h_inputs[j].data(), io.input_bytes[j]);
         ctx->enqueueV3(stream);
         CHECK_CUDA(cudaStreamSynchronize(stream));
     }
@@ -219,16 +285,18 @@ Stats bench_zerocopy(nvinfer1::ICudaEngine *engine, int warmup, int n_iters,
     for (int i = 0; i < n_iters; i++) {
         if (full_roundtrip) {
             auto t0 = std::chrono::high_resolution_clock::now();
-            std::memcpy(d_in, h_in.data(), in_bytes);
+            for (size_t j = 0; j < io.input_names.size(); j++)
+                std::memcpy(bufs.ptrs[in_start + j], h_inputs[j].data(), io.input_bytes[j]);
             ctx->enqueueV3(stream);
             CHECK_CUDA(cudaStreamSynchronize(stream));
-            // read-back: just access managed memory directly
-            volatile float out0 = ((float *)d_out)[0];
+            // Touch output to ensure coherence
+            volatile uint8_t out0 = ((uint8_t *)bufs.ptrs[out_start])[0];
             (void)out0;
             auto t1 = std::chrono::high_resolution_clock::now();
             times[i] = std::chrono::duration<double, std::micro>(t1 - t0).count();
         } else {
-            std::memcpy(d_in, h_in.data(), in_bytes);
+            for (size_t j = 0; j < io.input_names.size(); j++)
+                std::memcpy(bufs.ptrs[in_start + j], h_inputs[j].data(), io.input_bytes[j]);
             auto t0 = std::chrono::high_resolution_clock::now();
             ctx->enqueueV3(stream);
             CHECK_CUDA(cudaStreamSynchronize(stream));
@@ -237,42 +305,34 @@ Stats bench_zerocopy(nvinfer1::ICudaEngine *engine, int warmup, int n_iters,
         }
     }
 
-    CHECK_CUDA(cudaFree(d_in));
-    CHECK_CUDA(cudaFree(d_out));
+    free_buffers(bufs);
     CHECK_CUDA(cudaStreamDestroy(stream));
     delete ctx;
-
     return compute_stats(times);
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Variant 3: CUDA Graph (capture enqueueV3 → replay with cudaGraphLaunch)
 // ═════════════════════════════════════════════════════════════════════════════
-Stats bench_cuda_graph(nvinfer1::ICudaEngine *engine, int warmup, int n_iters) {
+Stats bench_cuda_graph(nvinfer1::ICudaEngine *engine, const EngineIO &io,
+                       int warmup, int n_iters) {
     auto *ctx = engine->createExecutionContext();
-
-    const char *in_name = "imu_data";
-    const char *out_name = "displacement";
-    size_t in_bytes = tensor_bytes(engine, in_name);
-    size_t out_bytes = tensor_bytes(engine, out_name);
-
-    void *d_in, *d_out;
-    CHECK_CUDA(cudaMalloc(&d_in, in_bytes));
-    CHECK_CUDA(cudaMalloc(&d_out, out_bytes));
-
-    std::vector<float> h_in(in_bytes / sizeof(float), 0.1f);
-    std::vector<float> h_out(out_bytes / sizeof(float));
-
     cudaStream_t stream;
     CHECK_CUDA(cudaStreamCreate(&stream));
 
-    ctx->setTensorAddress(in_name, d_in);
-    ctx->setTensorAddress(out_name, d_out);
+    auto bufs = alloc_buffers(engine, ctx, stream, false);
 
-    // Warmup (regular) before capture
+    std::vector<std::vector<uint8_t>> h_inputs;
+    for (size_t i = 0; i < io.input_names.size(); i++)
+        h_inputs.emplace_back(io.input_bytes[i], 0);
+
+    int in_start = 0;
+
+    // Warmup before capture
     for (int i = 0; i < 3; i++) {
-        CHECK_CUDA(cudaMemcpyAsync(d_in, h_in.data(), in_bytes,
-                                    cudaMemcpyHostToDevice, stream));
+        for (size_t j = 0; j < io.input_names.size(); j++)
+            CHECK_CUDA(cudaMemcpyAsync(bufs.ptrs[in_start + j], h_inputs[j].data(),
+                                        io.input_bytes[j], cudaMemcpyHostToDevice, stream));
         ctx->enqueueV3(stream);
         CHECK_CUDA(cudaStreamSynchronize(stream));
     }
@@ -280,89 +340,17 @@ Stats bench_cuda_graph(nvinfer1::ICudaEngine *engine, int warmup, int n_iters) {
     // Capture CUDA graph
     cudaGraph_t graph;
     cudaGraphExec_t graphExec;
-
     CHECK_CUDA(cudaStreamBeginCapture(stream, cudaStreamCaptureModeGlobal));
     ctx->enqueueV3(stream);
     CHECK_CUDA(cudaStreamEndCapture(stream, &graph));
     CHECK_CUDA(cudaGraphInstantiate(&graphExec, graph, nullptr, nullptr, 0));
-
     printf("  CUDA graph captured\n");
 
-    // Warmup with graph replay
+    // Warmup with graph
     for (int i = 0; i < warmup; i++) {
-        CHECK_CUDA(cudaMemcpyAsync(d_in, h_in.data(), in_bytes,
-                                    cudaMemcpyHostToDevice, stream));
-        CHECK_CUDA(cudaGraphLaunch(graphExec, stream));
-        CHECK_CUDA(cudaStreamSynchronize(stream));
-    }
-
-    // Benchmark: GPU-only timing (graph launch)
-    std::vector<double> times(n_iters);
-    for (int i = 0; i < n_iters; i++) {
-        CHECK_CUDA(cudaMemcpyAsync(d_in, h_in.data(), in_bytes,
-                                    cudaMemcpyHostToDevice, stream));
-        CHECK_CUDA(cudaStreamSynchronize(stream));
-        auto t0 = std::chrono::high_resolution_clock::now();
-        CHECK_CUDA(cudaGraphLaunch(graphExec, stream));
-        CHECK_CUDA(cudaStreamSynchronize(stream));
-        auto t1 = std::chrono::high_resolution_clock::now();
-        times[i] = std::chrono::duration<double, std::micro>(t1 - t0).count();
-    }
-
-    CHECK_CUDA(cudaGraphExecDestroy(graphExec));
-    CHECK_CUDA(cudaGraphDestroy(graph));
-    CHECK_CUDA(cudaFree(d_in));
-    CHECK_CUDA(cudaFree(d_out));
-    CHECK_CUDA(cudaStreamDestroy(stream));
-    delete ctx;
-
-    return compute_stats(times);
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
-// Variant 4: Zero-Copy + CUDA Graph (both optimizations)
-// ═════════════════════════════════════════════════════════════════════════════
-Stats bench_zerocopy_cuda_graph(nvinfer1::ICudaEngine *engine, int warmup, int n_iters) {
-    auto *ctx = engine->createExecutionContext();
-
-    const char *in_name = "imu_data";
-    const char *out_name = "displacement";
-    size_t in_bytes = tensor_bytes(engine, in_name);
-    size_t out_bytes = tensor_bytes(engine, out_name);
-
-    void *d_in, *d_out;
-    CHECK_CUDA(cudaMallocManaged(&d_in, in_bytes));
-    CHECK_CUDA(cudaMallocManaged(&d_out, out_bytes));
-
-    std::vector<float> h_in(in_bytes / sizeof(float), 0.1f);
-
-    cudaStream_t stream;
-    CHECK_CUDA(cudaStreamCreate(&stream));
-
-    ctx->setTensorAddress(in_name, d_in);
-    ctx->setTensorAddress(out_name, d_out);
-
-    // Warmup before capture
-    for (int i = 0; i < 3; i++) {
-        std::memcpy(d_in, h_in.data(), in_bytes);
-        ctx->enqueueV3(stream);
-        CHECK_CUDA(cudaStreamSynchronize(stream));
-    }
-
-    // Capture
-    cudaGraph_t graph;
-    cudaGraphExec_t graphExec;
-
-    CHECK_CUDA(cudaStreamBeginCapture(stream, cudaStreamCaptureModeGlobal));
-    ctx->enqueueV3(stream);
-    CHECK_CUDA(cudaStreamEndCapture(stream, &graph));
-    CHECK_CUDA(cudaGraphInstantiate(&graphExec, graph, nullptr, nullptr, 0));
-
-    printf("  CUDA graph captured (zero-copy + graph)\n");
-
-    // Warmup
-    for (int i = 0; i < warmup; i++) {
-        std::memcpy(d_in, h_in.data(), in_bytes);
+        for (size_t j = 0; j < io.input_names.size(); j++)
+            CHECK_CUDA(cudaMemcpyAsync(bufs.ptrs[in_start + j], h_inputs[j].data(),
+                                        io.input_bytes[j], cudaMemcpyHostToDevice, stream));
         CHECK_CUDA(cudaGraphLaunch(graphExec, stream));
         CHECK_CUDA(cudaStreamSynchronize(stream));
     }
@@ -370,7 +358,10 @@ Stats bench_zerocopy_cuda_graph(nvinfer1::ICudaEngine *engine, int warmup, int n
     // Benchmark
     std::vector<double> times(n_iters);
     for (int i = 0; i < n_iters; i++) {
-        std::memcpy(d_in, h_in.data(), in_bytes);
+        for (size_t j = 0; j < io.input_names.size(); j++)
+            CHECK_CUDA(cudaMemcpyAsync(bufs.ptrs[in_start + j], h_inputs[j].data(),
+                                        io.input_bytes[j], cudaMemcpyHostToDevice, stream));
+        CHECK_CUDA(cudaStreamSynchronize(stream));
         auto t0 = std::chrono::high_resolution_clock::now();
         CHECK_CUDA(cudaGraphLaunch(graphExec, stream));
         CHECK_CUDA(cudaStreamSynchronize(stream));
@@ -380,11 +371,71 @@ Stats bench_zerocopy_cuda_graph(nvinfer1::ICudaEngine *engine, int warmup, int n
 
     CHECK_CUDA(cudaGraphExecDestroy(graphExec));
     CHECK_CUDA(cudaGraphDestroy(graph));
-    CHECK_CUDA(cudaFree(d_in));
-    CHECK_CUDA(cudaFree(d_out));
+    free_buffers(bufs);
     CHECK_CUDA(cudaStreamDestroy(stream));
     delete ctx;
+    return compute_stats(times);
+}
 
+// ═════════════════════════════════════════════════════════════════════════════
+// Variant 4: Zero-Copy + CUDA Graph (both optimizations)
+// ═════════════════════════════════════════════════════════════════════════════
+Stats bench_zerocopy_cuda_graph(nvinfer1::ICudaEngine *engine, const EngineIO &io,
+                                int warmup, int n_iters) {
+    auto *ctx = engine->createExecutionContext();
+    cudaStream_t stream;
+    CHECK_CUDA(cudaStreamCreate(&stream));
+
+    auto bufs = alloc_buffers(engine, ctx, stream, true);
+
+    std::vector<std::vector<uint8_t>> h_inputs;
+    for (size_t i = 0; i < io.input_names.size(); i++)
+        h_inputs.emplace_back(io.input_bytes[i], 0);
+
+    int in_start = 0;
+
+    // Warmup before capture
+    for (int i = 0; i < 3; i++) {
+        for (size_t j = 0; j < io.input_names.size(); j++)
+            std::memcpy(bufs.ptrs[in_start + j], h_inputs[j].data(), io.input_bytes[j]);
+        ctx->enqueueV3(stream);
+        CHECK_CUDA(cudaStreamSynchronize(stream));
+    }
+
+    // Capture
+    cudaGraph_t graph;
+    cudaGraphExec_t graphExec;
+    CHECK_CUDA(cudaStreamBeginCapture(stream, cudaStreamCaptureModeGlobal));
+    ctx->enqueueV3(stream);
+    CHECK_CUDA(cudaStreamEndCapture(stream, &graph));
+    CHECK_CUDA(cudaGraphInstantiate(&graphExec, graph, nullptr, nullptr, 0));
+    printf("  CUDA graph captured (zero-copy + graph)\n");
+
+    // Warmup
+    for (int i = 0; i < warmup; i++) {
+        for (size_t j = 0; j < io.input_names.size(); j++)
+            std::memcpy(bufs.ptrs[in_start + j], h_inputs[j].data(), io.input_bytes[j]);
+        CHECK_CUDA(cudaGraphLaunch(graphExec, stream));
+        CHECK_CUDA(cudaStreamSynchronize(stream));
+    }
+
+    // Benchmark
+    std::vector<double> times(n_iters);
+    for (int i = 0; i < n_iters; i++) {
+        for (size_t j = 0; j < io.input_names.size(); j++)
+            std::memcpy(bufs.ptrs[in_start + j], h_inputs[j].data(), io.input_bytes[j]);
+        auto t0 = std::chrono::high_resolution_clock::now();
+        CHECK_CUDA(cudaGraphLaunch(graphExec, stream));
+        CHECK_CUDA(cudaStreamSynchronize(stream));
+        auto t1 = std::chrono::high_resolution_clock::now();
+        times[i] = std::chrono::duration<double, std::micro>(t1 - t0).count();
+    }
+
+    CHECK_CUDA(cudaGraphExecDestroy(graphExec));
+    CHECK_CUDA(cudaGraphDestroy(graph));
+    free_buffers(bufs);
+    CHECK_CUDA(cudaStreamDestroy(stream));
+    delete ctx;
     return compute_stats(times);
 }
 
@@ -400,7 +451,7 @@ int main(int argc, char **argv) {
     int warmup = argc > 3 ? atoi(argv[3]) : 30;
 
     printf("═══════════════════════════════════════════════════════════════\n");
-    printf("TensorRT Variant Benchmark — Cioffi TCN on Jetson AGX Orin\n");
+    printf("TensorRT Variant Benchmark on Jetson AGX Orin\n");
     printf("  Engine: %s\n", engine_path);
     printf("  Iterations: %d (warmup: %d)\n", n_iters, warmup);
     printf("═══════════════════════════════════════════════════════════════\n\n");
@@ -413,21 +464,27 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    // Print I/O info
-    const char *in_name = "imu_data";
-    const char *out_name = "displacement";
-    printf("  Input:  %s (%zu bytes)\n", in_name, tensor_bytes(engine, in_name));
-    printf("  Output: %s (%zu bytes)\n\n", out_name, tensor_bytes(engine, out_name));
+    // Auto-detect I/O tensors
+    EngineIO io = discover_io(engine);
+
+    printf("  I/O Tensors:\n");
+    for (size_t i = 0; i < io.input_names.size(); i++)
+        printf("    Input:  %-20s %8zu bytes\n", io.input_names[i].c_str(), io.input_bytes[i]);
+    for (size_t i = 0; i < io.output_names.size(); i++)
+        printf("    Output: %-20s %8zu bytes\n", io.output_names[i].c_str(), io.output_bytes[i]);
+    printf("    Total I/O: %zu bytes (%.1f KB)\n\n",
+           io.total_input_bytes + io.total_output_bytes,
+           (io.total_input_bytes + io.total_output_bytes) / 1024.0);
 
     // ── Variant 1: Stock (GPU-only timing) ──
     printf("─── [1] TRT Stock (cudaMalloc + cudaMemcpyAsync) ───\n");
     {
         printf("  GPU-only timing (enqueueV3 + sync):\n");
-        auto s = bench_stock(engine, warmup, n_iters, false);
+        auto s = bench_stock(engine, io, warmup, n_iters, false);
         print_stats("TRT Stock GPU-only", s);
 
         printf("  Full round-trip (H2D + compute + D2H):\n");
-        auto s_full = bench_stock(engine, warmup, n_iters, true);
+        auto s_full = bench_stock(engine, io, warmup, n_iters, true);
         print_stats("TRT Stock full", s_full);
     }
     printf("\n");
@@ -436,11 +493,11 @@ int main(int argc, char **argv) {
     printf("─── [2] TRT Zero-Copy (cudaMallocManaged) ───\n");
     {
         printf("  GPU-only timing (enqueueV3 + sync):\n");
-        auto s = bench_zerocopy(engine, warmup, n_iters, false);
+        auto s = bench_zerocopy(engine, io, warmup, n_iters, false);
         print_stats("TRT Zero-Copy GPU-only", s);
 
         printf("  Full round-trip (memcpy + compute + read):\n");
-        auto s_full = bench_zerocopy(engine, warmup, n_iters, true);
+        auto s_full = bench_zerocopy(engine, io, warmup, n_iters, true);
         print_stats("TRT Zero-Copy full", s_full);
     }
     printf("\n");
@@ -448,7 +505,7 @@ int main(int argc, char **argv) {
     // ── Variant 3: CUDA Graph ──
     printf("─── [3] TRT + CUDA Graph (cudaGraphLaunch) ───\n");
     {
-        auto s = bench_cuda_graph(engine, warmup, n_iters);
+        auto s = bench_cuda_graph(engine, io, warmup, n_iters);
         print_stats("TRT CUDA Graph", s);
     }
     printf("\n");
@@ -456,22 +513,22 @@ int main(int argc, char **argv) {
     // ── Variant 4: Zero-Copy + CUDA Graph ──
     printf("─── [4] TRT Zero-Copy + CUDA Graph ───\n");
     {
-        auto s = bench_zerocopy_cuda_graph(engine, warmup, n_iters);
+        auto s = bench_zerocopy_cuda_graph(engine, io, warmup, n_iters);
         print_stats("TRT ZC + Graph", s);
     }
     printf("\n");
 
-    // ── Summary ──
+    // ── Summary (fresh run for clean numbers) ──
     printf("═══════════════════════════════════════════════════════════════\n");
     printf("SUMMARY\n");
     printf("═══════════════════════════════════════════════════════════════\n");
     {
-        auto stock_gpu = bench_stock(engine, 10, 2000, false);
-        auto stock_full = bench_stock(engine, 10, 2000, true);
-        auto zc_gpu = bench_zerocopy(engine, 10, 2000, false);
-        auto zc_full = bench_zerocopy(engine, 10, 2000, true);
-        auto graph = bench_cuda_graph(engine, 10, 2000);
-        auto zc_graph = bench_zerocopy_cuda_graph(engine, 10, 2000);
+        auto stock_gpu = bench_stock(engine, io, 10, 2000, false);
+        auto stock_full = bench_stock(engine, io, 10, 2000, true);
+        auto zc_gpu = bench_zerocopy(engine, io, 10, 2000, false);
+        auto zc_full = bench_zerocopy(engine, io, 10, 2000, true);
+        auto graph = bench_cuda_graph(engine, io, 10, 2000);
+        auto zc_graph = bench_zerocopy_cuda_graph(engine, io, 10, 2000);
 
         printf("  %-40s %10s %10s %10s %10s\n", "Variant", "Median µs", "P99 µs", "Max µs", "Hz");
         printf("  %-40s %10s %10s %10s %10s\n", "────────────────────────────────────────",
