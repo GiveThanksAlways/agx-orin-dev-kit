@@ -316,3 +316,48 @@ CUDA Graphs eliminate `enqueueV3` dispatch overhead. The savings are proportiona
 - [x] 9 ONNX model files in `examples/onnx-export/`
 
 **Status**: Complete. All exportable models benchmarked. D-FINE/RF-DETR/YOLO11 TRT incompatibility documented.
+
+---
+
+## Task 7: PR-Ready CUDA Graph + Zero-Copy for libinfer
+
+**Goal**: Implement CUDA Graph capture/replay and Tegra zero-copy as opt-in features in libinfer, with default behavior unchanged. Ship as a PR-ready branch against `saronic-technologies/libinfer` upstream.
+
+**Design principles**:
+- Default `infer()` path is **unchanged** — no regression risk for existing users
+- CUDA Graph via new `infer_cuda_graph()` method — captures on first call, replays thereafter
+- Zero-copy via `load_engine_managed()` + `infer_zerocopy()` — opt-in unified memory path
+- Follows upstream coding style (spdlog, checkCudaErrorCode, cxx bridge pattern)
+- Clean branch from `origin/main` (v0.0.5, be20561)
+
+**Branch**: `feat/cuda-graph-replay` in `external/libinfer/` (based on `origin/main`)
+
+**Files changed** (in `external/libinfer/`):
+- [x] `src/engine.h` — Added `infer_cuda_graph()`, `infer_zerocopy()`, buffer accessors, CUDA Graph state (`cudaGraph_t`, `cudaGraphExec_t`), `mUseManagedMemory` flag, `setManagedMemory()`, `load_engine_managed()`, `load_engine_cuda_graph()` factory functions
+- [x] `src/engine.cpp` — Implemented `infer_cuda_graph()` (capture on first call, `cudaGraphLaunch` replay), `infer_zerocopy()` (managed memory path), buffer accessors, updated `load()` for `cudaMallocManaged` path, destructor cleanup for graph resources
+- [x] `src/lib.rs` — Extended CXX bridge with `infer_cuda_graph()`, `infer_zerocopy()`, `load_engine_managed()`, `load_engine_cuda_graph()`, buffer accessors. Added `Engine::new_managed()` and `Engine::new_cuda_graph()` Rust convenience constructors
+- [x] `Cargo.toml` — Added `benchmark_cuda_graph` example entry
+- [x] `examples/benchmark_cuda_graph.rs` — Benchmark comparing stock `infer()` vs `infer_cuda_graph()` (follows upstream `benchmark.rs` style)
+
+**API surface** (all additive, zero breaking changes):
+
+| Function | C++ | Rust | Purpose |
+|---|---|---|---|
+| `infer_cuda_graph()` | `Engine::infer_cuda_graph(input)` | `engine.pin_mut().infer_cuda_graph(&input)` | CUDA Graph capture/replay inference |
+| `infer_zerocopy()` | `Engine::infer_zerocopy(input)` | `engine.pin_mut().infer_zerocopy(&input)` | Managed memory inference (Tegra) |
+| `load_engine_managed()` | `load_engine_managed(options)` | `Engine::new_managed(&options)` | Load with `cudaMallocManaged` buffers |
+| `load_engine_cuda_graph()` | `load_engine_cuda_graph(options)` | `Engine::new_cuda_graph(&options)` | Load engine (alias, for symmetry) |
+| `load_engine_cuda_graph_managed()` | `load_engine_cuda_graph_managed(options)` | `Engine::new_cuda_graph_managed(&options)` | **ZC + Graph combined — recommended on Tegra** |
+| `get_input_buffer_ptr()` | `Engine::get_input_buffer_ptr(i)` | `unsafe { engine.get_input_buffer_ptr(i) }` | Raw managed memory buffer access |
+| `get_output_buffer_ptr()` | `Engine::get_output_buffer_ptr(i)` | `unsafe { engine.get_output_buffer_ptr(i) }` | Raw managed memory buffer access |
+| `get_input_buffer_size()` | `Engine::get_input_buffer_size(i)` | `engine.get_input_buffer_size(i)` | Buffer size query |
+| `get_output_buffer_size()` | `Engine::get_output_buffer_size(i)` | `engine.get_output_buffer_size(i)` | Buffer size query |
+
+**Acceptance**:
+- [x] `cargo check` passes on AGX Orin (aarch64)
+- [x] `cargo build --lib` compiles clean (only harmless spdlog macro-redefine warning)
+- [x] Default `infer()` path unchanged — zero-diff from upstream for existing users
+- [x] CUDA Graph state properly cleaned up in destructor (no leaks)
+- [x] Batch size mismatch after capture throws descriptive error
+
+**Status**: Complete. PR branch ready.
