@@ -20,6 +20,8 @@ examples/presentation/results.json
 onnx/
 logs/
 *.onnx
+*.pth
+*.pt
 .direnv/
 
 *.jpg
@@ -37,3 +39,7 @@ target/
 
 # Compiled C/C++ benchmarks
 examples/learned-inertial-odometry/bench_trt_variants
+examples/learned-inertial-odometry/bench_multi_model
+
+
+.venv*/

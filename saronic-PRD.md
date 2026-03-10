@@ -8,7 +8,7 @@
 ## Benchmark Results (2026-03-10)
 
 All benchmarks on Jetson AGX Orin 64GB, CUDA 12.6, TensorRT 10.7.0, FP16.
-Same-session data across all three models for consistency.
+Same-session data across all models for consistency.
 
 ### Cioffi TCN (250K params, 606 B I/O)
 
@@ -45,6 +45,62 @@ Same-session data across all three models for consistency.
 | **TRT CUDA Graph** | **2546** | **2625** | **1.03×** | **393** | **1.23× faster** (GPU) |
 | **TRT ZC + CUDA Graph** | **2743** | **2842** | **1.04×** | **365** | 1.59× faster |
 
+### YOLOv8-s 640×640 FP16 (11.2M params, 3.16 MB I/O) — detection small
+
+| Variant | Median µs | P99 µs | P99/Med | Hz | vs Stock |
+|---|---:|---:|---:|---:|---|
+| TRT Stock (GPU-only) | 4526 | 4637 | 1.02× | 221 | — |
+| TRT Stock (full round-trip) | 5587 | 5668 | 1.01× | 179 | 1.0× baseline |
+| **TRT CUDA Graph** | **3921** | **3975** | **1.01×** | **255** | **1.15× faster** (GPU) |
+| **TRT ZC + CUDA Graph** | **4050** | **4104** | **1.01×** | **247** | 1.38× faster |
+
+### YOLOv8-n-seg 640×640 FP16 (3.4M params, 11.5 MB I/O) — instance segmentation
+
+| Variant | Median µs | P99 µs | P99/Med | Hz | vs Stock |
+|---|---:|---:|---:|---:|---|
+| TRT Stock (GPU-only) | 3525 | 3574 | 1.01× | 284 | — |
+| TRT Stock (full round-trip) | 5362 | 5446 | 1.02× | 187 | 1.0× baseline |
+| **TRT CUDA Graph** | **2875** | **2906** | **1.01×** | **348** | **1.23× faster** (GPU) |
+| **TRT ZC + CUDA Graph** | **3005** | **3046** | **1.01×** | **333** | 1.78× faster |
+
+### YOLOv8-n-pose 640×640 FP16 (3.3M params, 6.5 MB I/O) — pose estimation
+
+| Variant | Median µs | P99 µs | P99/Med | Hz | vs Stock |
+|---|---:|---:|---:|---:|---|
+| TRT Stock (GPU-only) | 3115 | 3187 | 1.02× | 321 | — |
+| TRT Stock (full round-trip) | 4054 | 4184 | 1.03× | 247 | 1.0× baseline |
+| **TRT CUDA Graph** | **2514** | **2580** | **1.03×** | **398** | **1.24× faster** (GPU) |
+| **TRT ZC + CUDA Graph** | **2645** | **2721** | **1.03×** | **378** | 1.53× faster |
+
+### YOLOv8-s-pose 640×640 FP16 (11.6M params, 6.5 MB I/O) — pose small
+
+| Variant | Median µs | P99 µs | P99/Med | Hz | vs Stock |
+|---|---:|---:|---:|---:|---|
+| TRT Stock (GPU-only) | 4765 | 4838 | 1.02× | 210 | — |
+| TRT Stock (full round-trip) | 5691 | 5817 | 1.02× | 176 | 1.0× baseline |
+| **TRT CUDA Graph** | **4107** | **4163** | **1.01×** | **244** | **1.16× faster** (GPU) |
+| **TRT ZC + CUDA Graph** | **4233** | **4299** | **1.02×** | **236** | 1.34× faster |
+
+### Multi-Model Pipeline Benchmark (NEW)
+
+3-model perception pipeline: detection → segmentation → pose estimation.
+
+**Nano pipeline** (YOLOv8n-det → YOLOv8n-seg → YOLOv8n-pose):
+
+| Strategy | Median µs | P99 µs | Max µs | Hz | vs Sequential |
+|---|---:|---:|---:|---:|---|
+| Sequential (3× enqueue+sync) | 9551 | 9594 | 9619 | 105 | 1.0× |
+| Pipelined (3× enqueue, 1 sync) | 9364 | 9390 | 9432 | 107 | 1.02× |
+| **CUDA Graph (1 launch, 427 nodes)** | **7720** | **7744** | **7775** | **130** | **1.24×** |
+
+**Heavy pipeline** (YOLOv8s-det → YOLOv8n-seg → YOLOv8s-pose):
+
+| Strategy | Median µs | P99 µs | Max µs | Hz | vs Sequential |
+|---|---:|---:|---:|---:|---|
+| Sequential (3× enqueue+sync) | 12602 | 12664 | 13178 | 79 | 1.0× |
+| Pipelined (3× enqueue, 1 sync) | 12412 | 12451 | 12552 | 81 | 1.02× |
+| **CUDA Graph (1 launch, 419 nodes)** | **10691** | **10720** | **10747** | **94** | **1.18×** |
+
 ### Dispatch Overhead Analysis
 
 CUDA Graphs eliminate `enqueueV3` dispatch overhead. The savings are proportional to model complexity (layer count):
@@ -53,7 +109,18 @@ CUDA Graphs eliminate `enqueueV3` dispatch overhead. The savings are proportiona
 |---|---:|---:|---:|---:|
 | Cioffi TCN | 588 | 291 | **297 µs** | **2.02×** |
 | YOLOv8-n 320² | 1623 | 1157 | **466 µs** | **1.40×** |
+| YOLOv8-n-pose 640² | 3115 | 2514 | **601 µs** | **1.24×** |
 | YOLOv8-n 640² | 3127 | 2546 | **581 µs** | **1.23×** |
+| YOLOv8-n-seg 640² | 3525 | 2875 | **650 µs** | **1.23×** |
+| YOLOv8-s 640² | 4526 | 3921 | **605 µs** | **1.15×** |
+| YOLOv8-s-pose 640² | 4765 | 4107 | **658 µs** | **1.16×** |
+
+**Multi-model pipeline dispatch savings:**
+
+| Pipeline | Sequential µs | CUDA Graph µs | Saved µs | Speedup |
+|---|---:|---:|---:|---:|
+| Nano (3× n-size) | 9551 | 7720 | **1831 µs** | **1.24×** |
+| Heavy (mixed s+n) | 12602 | 10691 | **1912 µs** | **1.18×** |
 
 ### Tail Latency Analysis (critical for real-time autonomy)
 
@@ -75,15 +142,17 @@ CUDA Graphs eliminate `enqueueV3` dispatch overhead. The savings are proportiona
 
 ### Key Findings
 
-1. **CUDA Graphs are the #1 priority** — 1.2–2.0× GPU dispatch speedup on all models. libinfer does NOT use CUDA Graphs. ~50-line C++ change.
+1. **CUDA Graphs are the #1 priority** — 1.15–2.02× GPU dispatch speedup on all individual models, plus 1.18–1.24× speedup on multi-model pipelines. libinfer does NOT use CUDA Graphs. ~50-line C++ change for single-model, ~100 lines for multi-model capture.
 
-2. **Tail latency is the real killer.** At 320², stock TRT has **3.37× p99/median jitter** — one in 100 frames takes >5 ms. ZC+Graph eliminates this completely (p99/median = 1.04×). For real-time control loops, this matters more than throughput.
+2. **Multi-model pipelines compound the benefit.** A 3-model perception pipeline (det→seg→pose) running as a single CUDA Graph achieves **130 Hz** vs 105 Hz sequential — saving **1831 µs per iteration**. Pipelining alone (1 sync instead of 3) only helps 2%.
 
-3. **Zero-copy has limited value.** Hurts small models, marginal for large. Not worth API complexity.
+3. **Tail latency is the real killer.** At 320², stock TRT has **3.37× p99/median jitter** — one in 100 frames takes >5 ms. ZC+Graph eliminates this completely (p99/median = 1.04×). Multi-model CUDA Graphs have std_dev of 8.7 µs vs 13.8 µs (1.6× less jitter).
 
-4. **Dispatch overhead is ~300–580 µs/frame** across tested models. Adding `cudaStreamBeginCapture` + `cudaGraphLaunch` eliminates this for free.
+4. **Zero-copy has limited value.** Hurts small models, marginal for large. Not worth API complexity.
 
-5. **Saronic model inventory**: YOLOv8-n (production), D-FINE N/S/M/L/X (4–62M, DETR), RF-DETR Base/Large (29–128M, DETR). DETR models have more layers → expect even larger dispatch overhead savings.
+5. **Dispatch overhead is ~300–660 µs/frame per model, ~1800–1900 µs per pipeline.** Adding `cudaStreamBeginCapture` + `cudaGraphLaunch` eliminates this for free.
+
+6. **D-FINE, RF-DETR, and YOLO11 are TRT-incompatible on Orin.** All transformer/attention-based models fail to build TRT engines on SM 8.7 due to missing kernel tactics for fused attention nodes. This is a TRT 10.7 limitation. Pure CNN models (all YOLOv8 variants) work perfectly.
 
 ---
 
@@ -197,9 +266,9 @@ CUDA Graphs eliminate `enqueueV3` dispatch overhead. The savings are proportiona
 
 ---
 
-## Task 6: Saronic Model Survey + D-FINE / RF-DETR Benchmarks
+## Task 6: Saronic Model Survey + Extended Benchmarks
 
-**Goal**: Survey all saronic-technologies repos for ML models, then benchmark their production models beyond YOLOv8-n.
+**Goal**: Survey all saronic-technologies repos for ML models, benchmark production models beyond YOLOv8-n, and test multi-model CUDA Graph pipelines.
 
 **Survey results** (51 repos):
 - [x] **YOLOv8-n** (ultralytics fork) — production, in libinfer test suite
@@ -209,15 +278,41 @@ CUDA Graphs eliminate `enqueueV3` dispatch overhead. The savings are proportiona
 - [x] **saronic_egrabber** — Camera SDK (Nix)
 - [x] Verified: **NO CUDA Graph code** in libinfer main branch (v0.0.5)
 
-**ONNX export**:
-- [x] Created `examples/onnx-export/flake.nix` — NixOS flake for ultralytics ONNX export
-- [ ] Export D-FINE-N (4M) and D-FINE-S (10M) — needs ultralytics/pytorch env
-- [ ] Export RF-DETR-Base (29M) — needs ultralytics/pytorch env, resolution must be divisible by 56
+**ONNX export** (all complete):
+- [x] `examples/onnx-export/flake.nix` — NixOS flake for ultralytics ONNX export (pip venv approach)
+- [x] YOLOv8-s (44.8 MB), YOLOv8-n-seg (13.2 MB), YOLOv8-n-pose (12.9 MB), YOLOv8-s-pose (44.6 MB)
+- [x] YOLO11n-seg (11.2 MB)
+- [x] D-FINE-N (14.8 MB), D-FINE-S (39.9 MB) — exported with `dynamo=False`
+- [x] RF-DETR-Base (112.4 MB) — exported via rfdetr library
 
-**Benchmarks**:
-- [ ] D-FINE-N/S TRT engine build + bench_trt_variants — pending ONNX export
-- [ ] RF-DETR-Base TRT engine build + bench_trt_variants — pending ONNX export
+**TRT engine builds**:
+- [x] `yolov8s_640_fp16.engine` (25 MB) ✅
+- [x] `yolov8n_seg_640_fp16.engine` (9.4 MB) ✅
+- [x] `yolov8n_pose_640_fp16.engine` (9.3 MB) ✅
+- [x] `yolov8s_pose_640_fp16.engine` (26 MB) ✅
+- [x] D-FINE-N ❌ FAILED — fused encoder self_attn node, no tactics for SM 8.7
+- [x] D-FINE-S ❌ FAILED — same
+- [x] RF-DETR-Base ❌ FAILED — backbone projector fusion, no tactics for SM 8.7
+- [x] YOLO11n-seg ❌ FAILED — C2fAttn transformer blocks, no tactics for SM 8.7
 
-**Prediction**: D-FINE and RF-DETR are transformer-based (more layers than YOLOv8). Dispatch overhead savings from CUDA Graphs should be 500+ µs per frame — larger in absolute terms than YOLOv8.
+**Root cause of failures**: TRT 10.7 on Orin (SM 8.7) lacks kernel implementations for fused attention/transformer nodes. Error: `Could not find any implementation for node {ForeignNode[...attn...]} due to insufficient workspace` — occurs at ALL workspace sizes including 16 GB. Pattern: any model with attention blocks fails; pure CNN models work. D-FINE was only tested on T4 (SM 7.5) with TRT 10.4.
 
-**Status**: Survey complete. Benchmarks pending ONNX export environment build.
+**Individual model benchmarks** (all complete — see tables above):
+- [x] YOLOv8-s 640² — Graph 1.15× faster
+- [x] YOLOv8-n-seg 640² — Graph 1.23× faster
+- [x] YOLOv8-n-pose 640² — Graph 1.24× faster
+- [x] YOLOv8-s-pose 640² — Graph 1.16× faster
+
+**Multi-model pipeline benchmark** (NEW):
+- [x] `bench_multi_model.cpp` (280 lines) — Sequential vs Pipelined vs CUDA Graph across 3-model pipeline
+- [x] Nano pipeline (3× n-size): **1.24× speedup** with CUDA Graph, 427 nodes, 130 Hz
+- [x] Heavy pipeline (mixed s+n): **1.18× speedup** with CUDA Graph, 419 nodes, 94 Hz
+
+**Files created/modified**:
+- [x] `examples/learned-inertial-odometry/bench_multi_model.cpp` — multi-model layered benchmark
+- [x] `examples/onnx-export/export_dfine.py` — D-FINE ONNX export script
+- [x] `examples/onnx-export/export_rfdetr.py` — RF-DETR ONNX export script
+- [x] 4 new TRT engine files in `onnx/`
+- [x] 9 ONNX model files in `examples/onnx-export/`
+
+**Status**: Complete. All exportable models benchmarked. D-FINE/RF-DETR/YOLO11 TRT incompatibility documented.
