@@ -142,24 +142,46 @@ into our fork locally so we're building on the same foundation they are.
 | [#31](https://github.com/saronic-technologies/libinfer/pull/31) | `mpw/heterogeneously_dynamic_inputs` | Heterogeneously dynamic inputs — each input tensor can have independently dynamic dimensions (not just batch). This changes how `setInputShape()` works and how tensor metadata is stored. |
 | [#28](https://github.com/saronic-technologies/libinfer/pull/28) | `better-dynamic-axes` | Better dynamic axes — improves how optimization profiles handle dynamic dimensions. Changes to engine loading and shape validation. |
 
+#### Remote setup (ALREADY DONE)
+
+```
+origin    git@github.com:GiveThanksAlways/libinfer.git  (fetch + push) ← OUR fork
+upstream  git@github.com:saronic-technologies/libinfer.git (fetch only) ← Saronic's repo
+```
+
+> **STEALTH SAFETY**: The upstream push URL is set to `no_push_to_upstream` so
+> `git push upstream` will always fail. We ONLY fetch from upstream. All pushes
+> go to `origin` (our fork). If you ever need to re-add the remote:
+>
+> ```bash
+> git remote add upstream git@github.com:saronic-technologies/libinfer.git
+> git remote set-url --push upstream no_push_to_upstream
+> ```
+
 #### How to do it (all local, stealth)
+
+Branches `upstream/better-dynamic-axes` and `upstream/mpw/heterogeneously_dynamic_inputs`
+have already been fetched. To refresh them later: `git fetch upstream`.
 
 ```bash
 cd external/libinfer
 
-# Fetch their branches without pushing anything
-git fetch origin mpw/heterogeneously_dynamic_inputs
-git fetch origin better-dynamic-axes
+# If branches aren't fetched yet:
+git fetch upstream mpw/heterogeneously_dynamic_inputs
+git fetch upstream better-dynamic-axes
 
 # Option A: Rebase our work on top of both (preferred — clean history)
 git checkout feat/cuda-graph-replay
-git rebase origin/better-dynamic-axes     # older PR first
-git rebase origin/mpw/heterogeneously_dynamic_inputs  # newer PR on top
+git rebase upstream/better-dynamic-axes     # older PR first
+git rebase upstream/mpw/heterogeneously_dynamic_inputs  # newer PR on top
 # Then resolve any conflicts in engine.cpp / lib.rs
 
 # Option B: Merge if rebase gets messy
-git merge origin/better-dynamic-axes --no-edit
-git merge origin/mpw/heterogeneously_dynamic_inputs --no-edit
+git merge upstream/better-dynamic-axes --no-edit
+git merge upstream/mpw/heterogeneously_dynamic_inputs --no-edit
+
+# Push rebased branch to OUR fork only
+git push origin feat/cuda-graph-replay --force-with-lease
 ```
 
 #### Why this matters
