@@ -13,17 +13,25 @@ This document summarizes everything done so far on Saronic's [libinfer](https://
 ### libinfer (`external/libinfer/`)
 
 ```
+fdcaf53 docs: update benchmark report with PR #31 changes and latest numbers
+d43e31f feat: incorporate PR #31 heterogeneous dynamic inputs + safety/perf improvements
 d182d65 feat: Direct I/O buffers + 5-mode benchmark (1.18× pipeline, 34→40 Hz)
 9a5dce5 feat: CUDA Graph capture/replay + zero-copy fast path for TensorRT inference
 be20561 (origin/main) publish version 0.0.5 (#30)
 23b9087 fix: 11x inference regression from FFI resize loop and spurious stream sync (#29)
 ```
 
-**Commit `9a5dce5`** — Added CUDA graph capture/replay + IO_COHERENCE managed memory:
-- `capture_cuda_graph(batch_size)` / `run_cuda_graph()` in engine.h/cpp
-- `Engine::new_managed()` / `Engine::new_cuda_graph_managed()` in lib.rs
-- `get_input_buffer_ptr()` / `get_output_buffer_ptr()` / `get_{input,output}_buffer_size()` / `get_num_{inputs,outputs}()` — raw pointer + size queries
-- Original 3-mode benchmark in saronic_demo_pipeline.rs
+**Commit `d43e31f`** — Incorporated PR #31 + safety/perf rewrite:
+- Complete rewrite of engine.h, engine.cpp, lib.rs merging upstream PR #31's
+  per-input heterogeneous dynamic shape support with our CUDA graph, managed
+  memory, and Direct I/O optimizations
+- Per-input `InputShapeProfile` from TRT optimization profiles
+- Output buffers sized via TRT shape propagation (not manual mOutputLengths)
+- Pre-computed `mInputIndices`/`mOutputIndices` for O(1) hot-path lookups
+- Shape caching via `mLastInputShapes` to skip redundant setInputShape() calls
+- Safety: getDataTypeSize() default case, bounds checking, std::call_once, Send docs
+- Removed raw pointer APIs in favor of safe write/read buffer API
+- Backward-compatible `get_batch_dims()` via `get_input_shape_profiles()`
 
 **Commit `d182d65`** — Added safe Direct I/O API + 5-mode isolated benchmark:
 - `write_input_buffer(index, &[u8])` / `read_output_buffer(index, &mut [u8])` — safe Rust slice API, no `unsafe` needed in user code
@@ -31,28 +39,26 @@ be20561 (origin/main) publish version 0.0.5 (#30)
 - 5-mode benchmark isolating each optimization layer independently
 - `BENCHMARK_REPORT.md` — full results document
 
-### Parent repo (`agx-orin-dev-kit/`)
+**Commit `9a5dce5`** — Added CUDA graph capture/replay + IO_COHERENCE managed memory:
+- `capture_cuda_graph(batch_size)` / `run_cuda_graph()` in engine.h/cpp
+- `Engine::new_managed()` / `Engine::new_cuda_graph_managed()` in lib.rs
+- Original 3-mode benchmark in saronic_demo_pipeline.rs
 
-```
-c8640a9 chore: update libinfer submodule (Direct I/O + 5-mode benchmark)
-454df96 feat: libinfer CUDA Graph zero-copy fast path + nix dev shell
-```
-
-### Benchmark Results (5000 iters, Jetson AGX Orin 64GB)
+### Benchmark Results (2048 iters, Jetson AGX Orin 64GB)
 
 | Mode | Pipeline µs | Hz | Technique |
 |---|---|---|---|
-| 1. Stock `infer()` | 29,410 | 34 | Baseline |
-| 2. CUDA Graph | 26,548 | 38 | `infer_cuda_graph()` |
-| 3. IO_COHERENCE | 28,856 | 35 | `infer_zerocopy()` via managed mem |
-| 4. IO_COHERENCE + Graph | 25,868 | 39 | Combined |
-| 5. **Direct I/O** | **24,855** | **40** | `write_input_buffer` + `run_cuda_graph` + `read_output_buffer` |
+| 1. Stock `infer()` | 29,308 | 34 | Baseline |
+| 2. CUDA Graph | 26,536 | 38 | `infer_cuda_graph()` |
+| 3. IO_COHERENCE | 28,640 | 35 | `infer_zerocopy()` via managed mem |
+| 4. IO_COHERENCE + Graph | 25,930 | 39 | Combined |
+| 5. **Direct I/O** | **25,098** | **40** | `write_input_buffer` + `run_cuda_graph` + `read_output_buffer` |
 
 Additive breakdown (3-model YOLOv8n FP16 pipeline):
-- CUDA graph dispatch: **−2,862 µs** (63% of savings)
-- IO_COHERENCE memory: **−680 µs** (15%)  
-- Direct I/O buffers: **−1,012 µs** (22%)
-- **Total: −4,555 µs/frame (1.18×)**
+- CUDA graph dispatch: **−2,772 µs** (66% of savings)
+- IO_COHERENCE memory: **−606 µs** (14%)  
+- Direct I/O buffers: **−832 µs** (20%)
+- **Total: −4,210 µs/frame (1.17×)**
 
 ---
 
@@ -60,13 +66,13 @@ Additive breakdown (3-model YOLOv8n FP16 pipeline):
 
 | File | Lines | What |
 |---|---|---|
-| `external/libinfer/src/engine.h` | ~130 | C++ Engine class declaration. All public API lives here. |
-| `external/libinfer/src/engine.cpp` | ~900 | C++ implementation. TRT runtime, CUDA memory, graph capture. |
-| `external/libinfer/src/lib.rs` | ~300 | Rust FFI via cxx bridge. Wraps C++ Engine for safe Rust. |
+| `external/libinfer/src/engine.h` | ~187 | C++ Engine class declaration. TensorMetadata, index vectors, shape cache, CUDA graph state. |
+| `external/libinfer/src/engine.cpp` | ~968 | C++ implementation. TRT runtime, per-input dynamic shapes, CUDA graph, managed memory, Direct I/O. |
+| `external/libinfer/src/lib.rs` | ~295 | Rust FFI via cxx bridge. InputShapeProfile, ShapeProfile, BatchDims, Send safety docs. |
 | `external/libinfer/build.rs` | ~35 | Cargo build script. Links CUDA/TRT/spdlog. |
 | `external/libinfer/Cargo.toml` | ~50 | Dependencies (cxx 1.0.116, clap, tracing, ort). |
 | `external/libinfer/examples/saronic_demo_pipeline.rs` | ~510 | 5-mode benchmark. Good template for production usage. |
-| `external/libinfer/BENCHMARK_REPORT.md` | ~260 | Full results + elevator pitch for Saronic. |
+| `external/libinfer/BENCHMARK_REPORT.md` | ~280 | Full results + technical writeup. |
 | `examples/libinfer/flake.nix` | ~80 | Nix dev shell (CUDA + TRT + spdlog). |
 
 ### How to build
@@ -127,13 +133,13 @@ notes from issue #15:
 
 ## 4. High-Value Improvements — What To Do Next
 
-### Step Zero: Incorporate Saronic's Approved PRs (DO THIS FIRST)
+### ~~Step Zero: Incorporate Saronic's Approved PRs~~ ✅ DONE
 
-> **This must happen before any other work.** Our optimizations should build ON TOP of
-> Saronic's latest approved changes, not conflict with them.
-
-Two PRs are approved on upstream and will merge to `main` soon. We pull their branches
-into our fork locally so we're building on the same foundation they are.
+PR #31's heterogeneous dynamic input approach has been incorporated into our
+rewrite (commit `d43e31f`). The engine core now supports per-input shape
+profiles, TRT shape propagation for output buffer sizing, and independent
+dynamic dimension resolution per input. PR #28's changes are superseded by
+PR #31's approach.
 
 #### Branches to fetch
 
@@ -206,46 +212,32 @@ If the benchmark still passes with identical numbers (±5%), we're good. If shap
 
 ---
 
-### Tier 1: Safety & Correctness (Saronic cares deeply about Rust safety)
+### Tier 1: Safety & Correctness ✅ ALL DONE
 
-#### A. Fix `getDataTypeSize()` missing default case
-**File**: `engine.cpp:40-54`  
-**Severity**: Critical  
-**What**: The `switch` statement has no `default` case. If a new `TensorDataType` is added, it returns uninitialized stack data (UB).  
-**Fix**: Add `default: throw std::runtime_error("Unsupported tensor data type");`
+All Tier 1 items have been completed in commit `d43e31f`:
 
-#### B. Add bounds validation to `write_input_buffer()` / `read_output_buffer()`
-**File**: `engine.cpp:851-890`  
-**Severity**: High  
-**What**: No check that `data.size()` matches the expected buffer size. A user can write past the end of a GPU buffer → memory corruption.  
-**Fix**: Compare `data.size()` against the actual buffer size (stored during `load()`), throw if mismatched.
+#### ~~A. Fix `getDataTypeSize()` missing default case~~ ✅
+Added `default: throw std::runtime_error("Unsupported tensor data type in getDataTypeSize");`
 
-#### C. Remove/gate the raw pointer APIs
-**File**: `engine.h:68-72`, `lib.rs` unsafe blocks  
-**What**: `get_input_buffer_ptr()` / `get_output_buffer_ptr()` expose `*mut u8` to GPU memory with no bounds checking. Now that `write_input_buffer()` / `read_output_buffer()` exist, consider deprecating or removing the raw pointer path.  
-**Pitch to Saronic**: "Safe Rust API achieving identical performance to raw pointers, with zero `unsafe` in user code."
+#### ~~B. Add bounds validation to `write_input_buffer()` / `read_output_buffer()`~~ ✅
+Both methods now validate `data.size()` against `mBufferSizes[metaIdx]` and throw on overflow.
 
-#### D. Document thread safety model properly
-**File**: `lib.rs`  
-**What**: `unsafe impl Send for ffi::Engine {}` exists but Engine is NOT thread-safe (single IExecutionContext, no mutex). This is correct — Engine can be *moved* between threads, just not *shared*. But the docs don't explain this. Add clear documentation that Engine is `Send` but not `Sync`, and concurrent inference requires separate Engine instances.
+#### ~~C. Remove/gate the raw pointer APIs~~ ✅
+Removed `get_input_buffer_ptr()` / `get_output_buffer_ptr()`. Only safe `write_input_buffer` / `read_output_buffer` remain.
 
-#### E. Add `std::call_once` for logger initialization
-**File**: `engine.cpp:108-131`  
-**What**: Logger initialization has a TOCTOU race — two threads constructing Engine simultaneously can both enter the `!spdlog::get("libinfer")` block. Fix with `std::call_once`.
+#### ~~D. Document thread safety model properly~~ ✅
+`unsafe impl Send for ffi::Engine {}` now has full safety documentation explaining Engine is Send but not Sync.
+
+#### ~~E. Add `std::call_once` for logger initialization~~ ✅
+Logger init uses `static std::once_flag sLoggerInitFlag` with `std::call_once` in the Engine constructor.
 
 ### Tier 2: Performance (More µs to reclaim)
 
-#### F. Pre-compute tensor index mappings during `load()`
-**File**: `engine.cpp` — impacts `infer()`, `infer_cuda_graph()`, `infer_zerocopy()`, `write_input_buffer()`, `read_output_buffer()`  
-**Severity**: High — currently O(n²)  
-**What**: Every call to `write_input_buffer(index)` iterates through ALL metadata to find the nth input. Every output read in `infer()` iterates all prior tensors to count outputs. This is O(n²) in tensor count.  
-**Fix**: During `load()`, build `std::vector<size_t> mInputTensorIndices` and `mOutputTensorIndices` that map logical input/output index → metadata index. Then all lookups are O(1).  
-**Estimated savings**: ~50-100 µs per frame for a 3-model pipeline (eliminates ~18 linear scans per frame).
+#### ~~F. Pre-compute tensor index mappings during `load()`~~ ✅
+Pre-computed `mInputIndices` / `mOutputIndices` vectors built during `load()`, enabling O(1) lookup on every hot path.
 
-#### G. Cache `setInputShape()` calls
-**File**: `engine.cpp:330-335`  
-**What**: `mContext->setInputShape()` is called on EVERY inference even when shape hasn't changed (same batch size, same model). TensorRT validates the shape each time.  
-**Fix**: Store `mLastBatchSize` and only call `setInputShape()` when batch size changes. For fixed-batch models (which Saronic uses), this eliminates one TRT API call per inference.
+#### ~~G. Cache `setInputShape()` calls~~ ✅
+`mLastInputShapes` vector stores previous shapes per tensor. `setInputShape()` is only called when shape actually changes (via `dimsEqual()` comparison).
 
 #### H. Eliminate HashMap from `infer()` hot path
 **File**: `engine.cpp:318-320`  
@@ -371,3 +363,83 @@ Every microsecond we save in libinfer is a microsecond available for state estim
 - **cxx bridge**: libinfer uses [cxx](https://cxx.rs/) for C++↔Rust FFI (not bindgen). The bridge is defined in `lib.rs` — C++ functions are declared in `extern "C++"` blocks and automatically generated. This means any new C++ API needs both a `.h` declaration and a `lib.rs` bridge entry.
 
 - **License**: MPL-2.0. Our fork changes are derivative works under the same license. We are NOT upstreaming at this time — all work stays on our private fork (`feat/cuda-graph-replay` branch in `external/libinfer/`, `saronic-dev` branch in parent repo).
+
+## extra context
+
+```text
+
+extra context for https://github.com/saronic-technologies/libinfer/pull/28:
+------------------------------------------
+Description
+Added support for as many dynamic axes as you want wherever you want. It doesn't just have to be the first dimension of a tensor.
+
+Testing
+All the examples run
+Also integrated into a certain saronic downstream program and it works
+
+Notes
+Finished adding support for dynamic axes in libinfer wherever whenever: Some comparison
+
+libinfer 0.0.4 DETR benchmark.rs
+
+2025-08-31T21:32:50.467814Z  INFO benchmark: inference calls    : 4096
+2025-08-31T21:32:50.467820Z  INFO benchmark: total latency      : 54.53879
+2025-08-31T21:32:50.467823Z  INFO benchmark: avg. frame latency : 0.0066575673
+2025-08-31T21:32:50.467825Z  INFO benchmark: avg. frame fps     : 150.20502
+2025-08-31T21:32:50.467826Z  INFO benchmark: avg. batch latency : 0.013315135
+2025-08-31T21:32:50.467828Z  INFO benchmark: avg. batch fps     : 75.10251
+libinfer 0.0.5 (dynamic axes of death) DETR benchmark.rs
+
+2025-08-31T21:29:09.053947Z  INFO benchmark: inference calls    : 4096
+2025-08-31T21:29:09.053951Z  INFO benchmark: total latency      : 30.404646
+2025-08-31T21:29:09.053954Z  INFO benchmark: avg. batch latency : 0.0074230093
+2025-08-31T21:29:09.053955Z  INFO benchmark: avg. batch fps     : 134.71625
+libinfer 0.0.4 yolov8
+
+2025-08-31T21:37:40.372793Z  INFO benchmark: inference calls    : 4096
+2025-08-31T21:37:40.372798Z  INFO benchmark: total latency      : 50.759754
+2025-08-31T21:37:40.372800Z  INFO benchmark: avg. frame latency : 0.012392518
+2025-08-31T21:37:40.372802Z  INFO benchmark: avg. frame fps     : 80.69385
+2025-08-31T21:37:40.372803Z  INFO benchmark: avg. batch latency : 0.012392518
+2025-08-31T21:37:40.372805Z  INFO benchmark: avg. batch fps     : 80.69385
+libinfer 0.0.5 yolov8
+
+2025-08-31T21:39:45.790839Z  INFO benchmark: inference calls    : 4096
+2025-08-31T21:39:45.790845Z  INFO benchmark: total latency      : 59.263123
+2025-08-31T21:39:45.790847Z  INFO benchmark: avg. batch latency : 0.014468536
+2025-08-31T21:39:45.790849Z  INFO benchmark: avg. batch fps     : 69.11549
+I found a major optimization bug where we were prematurely synchronizing the cuda stream. I introduced this in 0.0.4. By removing this we have a pretty massive performance improvement on larger models. Strangely I am getting better performance on the new tracker trained DETR model than yolov8. The DETR model is quite a bit larger and has two transformers so I am suprised. Not complaining though, this is nearly a 2x performance improvement
+
+We are still IO bound on f32 output tensors. Will save that for 0.0.6
+```
+
+```text
+extra context for: https://github.com/saronic-technologies/libinfer/pull/31
+-------------------------------------
+Adds per-input heterogeneous dynamic shape support; each input tensor now has its own min/opt/max shape profile from TensorRT, replacing the single global batch size. Input buffers allocated per their own max shape; output buffers sized via TensorRT shape propagation after setting all inputs to max. infer() resolves each input's dynamic dimension independently using precomputed metadata (one integer division per dynamic input, zero heap allocations).
+
+Also removed get_output_len() and mOutputLengths, output sizes now queried dynamically from mContext->getTensorShape() after input shapes are set
+
+Questions:
+
+remove get_batch_dims()?
+Benchmarks:
+FP16 engine (3 tensors, 1 dynamic dim on [1])
+dynD	Avg	p50	p99	Throughput
+1	5.57ms	5.57ms	5.65ms	179.6 infer/s
+16	11.47ms	11.48ms	11.76ms	87.2 infer/s
+64	38.96ms	39.07ms	39.67ms	25.7 infer/s
+FP32 engine (3 tensors, 1 dynamic dim on [1])
+dynD	Avg	p50	p99	Throughput
+1	20.00ms	20.00ms	20.18ms	50.0 infer/s
+16	37.37ms	37.23ms	39.86ms	26.8 infer/s
+64	127.2ms	—	—	~7.9 infer/s
+YOLOv8n (static, single input)
+Metric	Value
+Avg	1.750ms
+p50	1.763ms
+p99	1.781ms
+Min	1.642ms
+Max	1.787ms
+Throughput	571.5 infer/s
+```
