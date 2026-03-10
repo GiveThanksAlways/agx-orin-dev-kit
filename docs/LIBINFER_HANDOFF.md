@@ -105,9 +105,11 @@ Saronic's public libinfer has 3 open issues:
 | [#16](https://github.com/saronic-technologies/libinfer/issues/16) | Implement passing and returning device pointers | We solved this with `write_input_buffer` / `read_output_buffer`. Their approach may differ. |
 | [#15](https://github.com/saronic-technologies/libinfer/issues/15) | Cargo Test and CI | No CI exists upstream. We should add tests to our fork to protect our changes. |
 
-Open PRs to watch (may cause merge conflicts if we rebase later):
-- [#31](https://github.com/saronic-technologies/libinfer/pull/31) — Heterogeneously dynamic inputs (active, 1 approval)
-- [#28](https://github.com/saronic-technologies/libinfer/pull/28) — Better dynamic axes (stale)
+**Approved PRs we MUST incorporate** (see Step Zero in §4):
+- [#31](https://github.com/saronic-technologies/libinfer/pull/31) — **Heterogeneously dynamic inputs** (branch: `mpw/heterogeneously_dynamic_inputs`, approved)
+- [#28](https://github.com/saronic-technologies/libinfer/pull/28) — **Better dynamic axes** (branch: `better-dynamic-axes`, approved)
+
+Both are approved and will land on `main` soon. We need to pull these into our fork FIRST so our optimizations build on top of their latest code, not alongside it. This avoids painful merge conflicts later and means our CUDA graph / Direct I/O work benefits from their dynamic input improvements.
 
 notes from issue #14:
 
@@ -117,9 +119,70 @@ notes from issue #16:
 
 - "In the spirit of this library, we want more code is as reasonable to exist on the Rust side versus the C++ side. To that end, it would greatly enhance flexibility if we could pass device pointers to libinfer in order to execute operations. This will allow chained CUDA operations to be feasible without additional host to device memcpys."
 
+notes from issue #15:
+
+- "Testing is a little tricky right now because of the build process, and because it requires a GPU, but it would be great to get these running."
+
 ---
 
 ## 4. High-Value Improvements — What To Do Next
+
+### Step Zero: Incorporate Saronic's Approved PRs (DO THIS FIRST)
+
+> **This must happen before any other work.** Our optimizations should build ON TOP of
+> Saronic's latest approved changes, not conflict with them.
+
+Two PRs are approved on upstream and will merge to `main` soon. We pull their branches
+into our fork locally so we're building on the same foundation they are.
+
+#### Branches to fetch
+
+| PR | Branch | What It Adds |
+|---|---|---|
+| [#31](https://github.com/saronic-technologies/libinfer/pull/31) | `mpw/heterogeneously_dynamic_inputs` | Heterogeneously dynamic inputs — each input tensor can have independently dynamic dimensions (not just batch). This changes how `setInputShape()` works and how tensor metadata is stored. |
+| [#28](https://github.com/saronic-technologies/libinfer/pull/28) | `better-dynamic-axes` | Better dynamic axes — improves how optimization profiles handle dynamic dimensions. Changes to engine loading and shape validation. |
+
+#### How to do it (all local, stealth)
+
+```bash
+cd external/libinfer
+
+# Fetch their branches without pushing anything
+git fetch origin mpw/heterogeneously_dynamic_inputs
+git fetch origin better-dynamic-axes
+
+# Option A: Rebase our work on top of both (preferred — clean history)
+git checkout feat/cuda-graph-replay
+git rebase origin/better-dynamic-axes     # older PR first
+git rebase origin/mpw/heterogeneously_dynamic_inputs  # newer PR on top
+# Then resolve any conflicts in engine.cpp / lib.rs
+
+# Option B: Merge if rebase gets messy
+git merge origin/better-dynamic-axes --no-edit
+git merge origin/mpw/heterogeneously_dynamic_inputs --no-edit
+```
+
+#### Why this matters
+
+1. **Our `write_input_buffer()` / `read_output_buffer()` must handle dynamic shapes.** PR #31 changes how input dimensions are validated — if we don't incorporate it, our Direct I/O path may break on dynamically-shaped models.
+2. **CUDA graph caching for dynamic batches.** Issue #14 explicitly says "we need to also support dynamic batching, so we will have to cache them." PR #31's heterogeneous dynamic inputs is the prerequisite for this. Our `capture_cuda_graph()` currently only handles a single fixed batch size — we'll need to extend it to cache multiple graphs keyed by input shape.
+3. **Issue #16 alignment.** They want device pointers to live on the Rust side. PR #28's better dynamic axes changes the Rust FFI surface. If we build our device pointer APIs without this, the types won't match upstream's direction.
+4. **Conflict avoidance.** Both PRs touch `engine.cpp`, `engine.h`, and `lib.rs` — the exact files we modified. Incorporating now (while changes are small) is far easier than rebasing after 10 more commits.
+
+#### After incorporating, verify:
+
+```bash
+# Rebuild and make sure our benchmark still works
+cd /home/agent/agx-orin-dev-kit/examples/libinfer
+nix develop --command bash -c "\
+  cd ../../external/libinfer && \
+  cargo build --release --example saronic_demo_pipeline && \
+  echo 'BUILD OK'"
+```
+
+If the benchmark still passes with identical numbers (±5%), we're good. If shapes changed, update `DirectBufs` and `make_inputs()` accordingly.
+
+---
 
 ### Tier 1: Safety & Correctness (Saronic cares deeply about Rust safety)
 
@@ -256,6 +319,7 @@ Every microsecond we save in libinfer is a microsecond available for state estim
 
 | Priority | Task | Estimated Impact | Difficulty |
 |---|---|---|---|
+| **P0** | **Incorporate approved PRs #31 + #28 (Step Zero)** | **Foundation — do first** | **Medium** |
 | **P0** | Fix `getDataTypeSize()` UB (A) | Safety | Trivial |
 | **P0** | Add bounds checking to write/read buffers (B) | Safety | Easy |
 | **P1** | Pre-compute tensor index maps (F) | −100 µs | Medium |
