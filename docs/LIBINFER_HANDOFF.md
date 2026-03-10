@@ -91,19 +91,31 @@ Engine files are at: `/home/agent/agx-orin-dev-kit/examples/learned-inertial-odo
 
 ---
 
-## 3. Upstream Issues We Can Address
+## 3. Upstream Awareness (NOT upstreaming — stealth fork only)
 
-Saronic's libinfer has 3 open issues on GitHub:
+> **IMPORTANT**: We are working on our private fork only (`feat/cuda-graph-replay` branch).
+> Do NOT open PRs or issues against `saronic-technologies/libinfer`.
+> This section is context-only so you know what Saronic's team is working on upstream.
 
-| Issue | Title | Status | Our Work |
-|---|---|---|---|
-| [#14](https://github.com/saronic-technologies/libinfer/issues/14) | Support CUDA graphs | **We implemented this** — `capture_cuda_graph()` + `run_cuda_graph()` |
-| [#16](https://github.com/saronic-technologies/libinfer/issues/16) | Implement passing and returning device pointers | **Partially done** — `get_input_buffer_ptr()` / `get_output_buffer_ptr()` exist, but safe `write_input_buffer` / `read_output_buffer` is the better approach |
-| [#15](https://github.com/saronic-technologies/libinfer/issues/15) | Cargo Test and CI | **Not started** — Good contribution opportunity |
+Saronic's public libinfer has 3 open issues:
 
-Open PRs:
+| Issue | Title | What It Means For Us |
+|---|---|---|
+| [#14](https://github.com/saronic-technologies/libinfer/issues/14) | Support CUDA graphs | We already implemented this on our fork. If they ship their own version, we may need to rebase. Watch for conflicts. |
+| [#16](https://github.com/saronic-technologies/libinfer/issues/16) | Implement passing and returning device pointers | We solved this with `write_input_buffer` / `read_output_buffer`. Their approach may differ. |
+| [#15](https://github.com/saronic-technologies/libinfer/issues/15) | Cargo Test and CI | No CI exists upstream. We should add tests to our fork to protect our changes. |
+
+Open PRs to watch (may cause merge conflicts if we rebase later):
 - [#31](https://github.com/saronic-technologies/libinfer/pull/31) — Heterogeneously dynamic inputs (active, 1 approval)
 - [#28](https://github.com/saronic-technologies/libinfer/pull/28) — Better dynamic axes (stale)
+
+notes from issue #14:
+
+- "CUDA graphs would be a great optimization to have, but we need to also support dynamic batching, so we will have to cache them."
+
+notes from issue #16:
+
+- "In the spirit of this library, we want more code is as reasonable to exist on the Rust side versus the C++ side. To that end, it would greatly enhance flexibility if we could pass device pointers to libinfer in order to execute operations. This will allow chained CUDA operations to be feasible without additional host to device memcpys."
 
 ---
 
@@ -169,17 +181,17 @@ Open PRs:
 
 ### Tier 3: Ecosystem & Production Value
 
-#### K. Contribute CUDA graph support upstream (closes [#14](https://github.com/saronic-technologies/libinfer/issues/14))
-**What**: Clean up our `capture_cuda_graph()` / `run_cuda_graph()` API to match libinfer's code style and submit as a PR against `saronic-technologies/libinfer` main.  
-**Includes**: The safe `write_input_buffer` / `read_output_buffer` API (closes most of [#16](https://github.com/saronic-technologies/libinfer/issues/16)).
-
-#### L. Add CI and integration tests (addresses [#15](https://github.com/saronic-technologies/libinfer/issues/15))
-**What**: Saronic has no CI for libinfer. Create a GitHub Actions workflow that:
-- Builds on x86_64 (CUDA stub) and aarch64 (cross-compile)
-- Runs unit tests with mock engine files
+#### K. Add CI and integration tests to our fork
+**What**: Neither upstream nor our fork has CI. Add a local test harness that:
 - Validates the cxx bridge compiles
+- Runs unit tests with mock engine files
+- Regression-tests the Direct I/O path against known-good outputs
 - Tests the nix flake builds
-**Value**: Shows engineering maturity, prevents regressions like the 11× regression in #29.
+**Value**: Protects our fork from regressions (upstream had an 11× regression in #29 — we don't want that).
+
+#### L. Track upstream changes for rebase-readiness
+**What**: Periodically check `saronic-technologies/libinfer` main for new commits (especially PR #31 dynamic inputs). If they land CUDA graph support themselves, our fork will need careful conflict resolution.
+**Action**: `git fetch origin && git log origin/main --oneline` to see what's new.
 
 #### M. Integrate libdebayer into the pipeline
 **What**: Saronic also has [libdebayer](https://github.com/saronic-technologies/libdebayer) — CUDA-accelerated Bayer demosaicing for camera sensors. In a real perception pipeline, raw Bayer frames → debayer → YOLOv8.  
@@ -249,9 +261,9 @@ Every microsecond we save in libinfer is a microsecond available for state estim
 | **P1** | Pre-compute tensor index maps (F) | −100 µs | Medium |
 | **P1** | Eliminate HashMap in `infer()` (H) | −300 µs | Medium |
 | **P1** | Cache `setInputShape()` (G) | −50 µs | Easy |
-| **P1** | Upstream PR for CUDA graphs (#14) (K) | Community value | Medium |
+| **P1** | Add CI / regression tests to fork (K) | Protects our work | Medium |
 | **P2** | Deprecate raw pointer APIs (C) | Safety posture | Easy |
-| **P2** | Add CI (L) | Engineering maturity | Medium |
+| **P2** | Track upstream for rebase-readiness (L) | Avoids drift | Low |
 | **P2** | Multi-stream pipelining (I) | +8 Hz potential | Hard |
 | **P2** | libdebayer integration (M) | −3-5 ms | Hard |
 | **P3** | Pinned memory for device path (J) | Async overlap | Medium |
@@ -272,4 +284,4 @@ Every microsecond we save in libinfer is a microsecond available for state estim
 
 - **cxx bridge**: libinfer uses [cxx](https://cxx.rs/) for C++↔Rust FFI (not bindgen). The bridge is defined in `lib.rs` — C++ functions are declared in `extern "C++"` blocks and automatically generated. This means any new C++ API needs both a `.h` declaration and a `lib.rs` bridge entry.
 
-- **License**: MPL-2.0. Our changes are derivative works and should be contributed back or kept under the same license.
+- **License**: MPL-2.0. Our fork changes are derivative works under the same license. We are NOT upstreaming at this time — all work stays on our private fork (`feat/cuda-graph-replay` branch in `external/libinfer/`, `saronic-dev` branch in parent repo).
