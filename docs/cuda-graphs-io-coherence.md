@@ -324,55 +324,72 @@ impact, and implementation status.
 
 ### Single-Model Latency (4,096 iterations, 512 warmup)
 
-| Engine | Stock µs | CUDA Graph µs | Speedup | Direct I/O + Graph µs | Pinned + Graph µs |
-|--------|---------|---------------|---------|----------------------|-------------------|
-| YOLOv8n 640 FP16 | 4,094 | 3,872 | **1.06×** | 3,901 (1.05×) | 4,022 (1.02×) |
-| YOLOv8n 320 FP16 | 1,876 | 1,634 | **1.15×** | 1,645 (1.14×) | 1,653 (1.13×) |
+| Engine | Stock µs | CUDA Graph µs | Speedup | Managed + Direct I/O µs |
+|--------|---------|---------------|---------|------------------------|
+| YOLOv8n 640 FP16 | 4,102 | 3,886 | **1.06×** | 4,199 (0.98×) |
+| YOLOv8n 320 FP16 | 1,866 | 1,635 | **1.14×** | 1,690 (1.10×) |
 
 CUDA Graph speedup scales inversely with compute time. At 640×640 the GPU is
 heavily compute-bound so overhead savings are modest (6%). At 320×320 (Saronic's
-production resolution) the overhead fraction is larger, yielding 15%.
+production resolution) the overhead fraction is larger, yielding 14%.
 
-**Key insight**: Single-model improvement appears modest because YOLOv8 on Orin
-is compute-bound — the GPU is saturated running convolution kernels. But in a
-multi-model pipeline, overhead _stacks_ across models, making the savings
-compound. See §Pipeline results below.
+**Why managed memory is slower for single models**: The SMMU page coherence
+overhead exceeds the DMA savings when only one model is running. The GPU is
+already saturated with convolution kernels — there's no DMA to overlap with.
+But in a multi-model pipeline, the overhead stacks.
 
 ### 3-Model Pipeline (YOLOv8n FP16 × 3, 2,048 iterations + 15s sustained)
 
 | Mode | Median µs/frame | Hz | P99 µs | Jitter |
 |------|----------------:|---:|-------:|:------:|
-| 1. Stock `infer()` | 23,554 | 42 | 24,574 | 1.04× |
-| 2. CUDA Graph | 21,869 | 46 | 22,623 | 1.03× |
-| 3. IO_COHERENCE | 23,266 | 43 | 24,281 | 1.04× |
-| 4. IO_COHERENCE + Graph | 21,380 | **47** | 21,959 | **1.03×** |
-| 5. Direct I/O + Graph | 21,546 | 46 | 22,876 | 1.06× |
+| 1. Stock `infer()` | 29,287 | 34 | 30,188 | 1.03× |
+| 2. CUDA Graph | 26,539 | 38 | 27,275 | 1.03× |
+| 3. IO_COHERENCE | 28,920 | 35 | 29,654 | 1.03× |
+| 4. IO_COHERENCE + Graph | 25,886 | 39 | 26,423 | 1.02× |
+| 5. **Direct I/O (managed + graph)** | **25,012** | **40** | **25,368** | **1.01×** |
+
+Mode 5 is the **recommended production path** on Tegra: IO_COHERENCE eliminates
+DMA, CUDA Graph eliminates kernel dispatch, Direct I/O eliminates per-call heap
+allocations (HashMap, Vec, OutputTensor construction, string copies).
 
 ### Sustained Throughput (15 seconds continuous)
 
 | Mode | Hz | Frames | Median µs | P99 µs |
 |------|---:|-------:|----------:|-------:|
-| Stock | 42.5 | 637 | 23,527 | 24,212 |
-| CUDA Graph | 45.7 | 685 | 21,882 | 22,629 |
-| IO_COHERENCE | 42.9 | 643 | 23,330 | 24,238 |
-| IO_COHERENCE + Graph | **46.7** | **700** | **21,392** | **21,959** |
-| Direct I/O + Graph | 45.7 | 686 | 21,635 | 22,931 |
+| Stock | 34.0 | 510 | 29,350 | 30,317 |
+| CUDA Graph | 37.5 | 563 | 26,545 | 27,305 |
+| IO_COHERENCE | 34.7 | 520 | 28,860 | 29,581 |
+| IO_COHERENCE + Graph | 38.5 | 577 | 25,917 | 26,481 |
+| **Direct I/O** | **39.9** | **599** | **25,160** | **25,464** |
+
+### Per-Model Speedup (stock → Direct I/O)
+
+| Model | Stock µs | Direct I/O µs | Speedup |
+|-------|---------|---------------|--------|
+| Detection | 7,546 | 7,643 | 0.99× |
+| Segmentation | 11,999 | 9,221 | **1.30×** |
+| Pose | 9,093 | 7,820 | **1.16×** |
+
+Segmentation benefits most (1.30×) because it has the largest I/O footprint
+(11.8 KB), where IO_COHERENCE and Direct I/O savings are proportionally largest.
+Detection is essentially break-even on its own — the pipeline-level improvement
+comes from the other two models.
 
 ### Additive Breakdown
 
 ```
-  CUDA Graph dispatch:   −1,684 µs  (eliminates per-layer GPU kernel launch × 3 models)
-  IO_COHERENCE memory:     −489 µs  (eliminates DMA H2D/D2H via unified memory)
-  Direct I/O buffers:      +165 µs  (eliminates HashMap/Vec/validation — minor overhead)
+  CUDA Graph dispatch:   −2,748 µs  (64% — eliminates per-layer kernel launch × 3 models)
+  IO_COHERENCE memory:     −652 µs  (15% — eliminates DMA H2D/D2H via unified memory)
+  Direct I/O buffers:      −874 µs  (20% — eliminates HashMap, Vec alloc, string copies)
   ─────────────────────────────────
-  Total:                 −2,008 µs  (1.09× throughput, 42 → 46 Hz)
+  Total:                 −4,275 µs  (1.17× throughput, 34 → 40 Hz)
 ```
 
 ### Production Impact
 
-- **+4 Hz** frame rate (42 → 46 Hz sustained)
-- **2,008 µs** per-frame budget freed for post-processing
-- **P99 tail**: 24,574 → 22,876 µs (6.9% tighter)
+- **+6 Hz** frame rate (34 → 40 Hz sustained)
+- **4,275 µs** per-frame budget freed for post-processing
+- **P99 tail**: 30,188 → 25,368 µs (16.0% tighter)
 - **The more models in the pipeline, the more these savings compound.**
   For Saronic's full production stack (potentially 4-5 models with tracking
   and classification), the gap will widen further.
@@ -387,9 +404,22 @@ But in a 3-model pipeline (det → seg → pose):
 - Each `enqueueV3()` dispatches dozens of CUDA kernels → launch overhead triples
 - 3× (memcpy H2D + memcpy D2H) = 6 DMA operations eliminated per frame
 - CUDA Graph replaces all per-model kernel scheduling with one `cudaGraphLaunch()` each
+- `infer_cuda_graph()` builds a ShapeKey HashMap + allocates OutputTensor per output
+  per model — Direct I/O eliminates all of this (~290µs/model = ~874µs/frame)
 
 The overhead fraction grows linearly with model count while compute stays
-constant per model. At 4-5 models, these optimizations would save ~3-4 ms/frame.
+constant per model. At 4-5 models, these optimizations would save ~5-6 ms/frame.
+
+### Bound Analysis: Compute vs Memory vs Overhead
+
+| Regime | Dominant Cost | CUDA Graph Impact | IO_COHERENCE Impact | Direct I/O Impact |
+|--------|--------------|-------------------|---------------------|-------------------|
+| **Compute-bound** (single large model) | GPU kernel execution | Modest (1.06×) | Neutral/negative | Neutral |
+| **Overhead-bound** (small model, <1ms) | Kernel launch + API calls | Large (1.5-2×) | Small | Moderate |
+| **Pipeline-bound** (N models stacked) | Overhead × N + DMA × 2N | Scales with N | Scales with N | **Scales with N** |
+
+Saronic's 3-model perception pipeline sits in the **pipeline-bound** regime,
+where all three optimization layers compound.
 
 ---
 

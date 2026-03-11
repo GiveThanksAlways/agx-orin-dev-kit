@@ -51,20 +51,22 @@ be20561 (origin/main) publish version 0.0.5
 
 | Engine | Stock µs | CUDA Graph µs | Speedup |
 |---|---|---|---|
-| YOLOv8n 640 FP16 | 4,094 | 3,872 | **1.06×** |
-| YOLOv8n 320 FP16 | 1,876 | 1,634 | **1.15×** |
+| YOLOv8n 640 FP16 | 4,102 | 3,886 | **1.06×** |
+| YOLOv8n 320 FP16 | 1,866 | 1,635 | **1.14×** |
 
 #### 3-Model Pipeline (det → seg → pose, 15s sustained)
 
 | Mode | Hz | Median µs | P99 µs |
 |---|---:|---:|---:|
-| 1. Stock | 42.5 | 23,527 | 24,212 |
-| 2. CUDA Graph | 45.7 | 21,882 | 22,629 |
-| 3. IO_COHERENCE | 42.9 | 23,330 | 24,238 |
-| 4. IO_COHERENCE + Graph | **46.7** | **21,392** | **21,959** |
-| 5. Direct I/O + Graph | 45.7 | 21,635 | 22,931 |
+| 1. Stock | 34.0 | 29,350 | 30,317 |
+| 2. CUDA Graph | 37.5 | 26,545 | 27,305 |
+| 3. IO_COHERENCE | 34.7 | 28,860 | 29,581 |
+| 4. IO_COHERENCE + Graph | 38.5 | 25,917 | 26,481 |
+| 5. **Direct I/O** (managed+graph) | **39.9** | **25,160** | **25,464** |
 
-Production impact: **+4 Hz (42 → 46)**, 2,008 µs/frame freed, P99 tail 6.9% tighter.
+Production impact: **+6 Hz (34 → 40)**, 4,275 µs/frame freed, P99 tail 16% tighter.
+
+Additive breakdown: CUDA Graph −2,748µs (64%), IO_COHERENCE −652µs (15%), Direct I/O −874µs (20%).
 
 ---
 
