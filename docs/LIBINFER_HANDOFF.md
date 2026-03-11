@@ -13,16 +13,17 @@ This document summarizes everything done so far on Saronic's [libinfer](https://
 ### libinfer (`external/libinfer/`)
 
 ```
-fdcaf53 docs: update benchmark report with PR #31 changes and latest numbers
-d43e31f feat: incorporate PR #31 heterogeneous dynamic inputs + safety/perf improvements
+a9a4d3e bench: baseline comparison benchmark + report
+fc52327 docs: update benchmark report with dynamic input changes and latest numbers
+728440c feat: heterogeneous dynamic inputs + safety/perf improvements
 d182d65 feat: Direct I/O buffers + 5-mode benchmark (1.18× pipeline, 34→40 Hz)
 9a5dce5 feat: CUDA Graph capture/replay + zero-copy fast path for TensorRT inference
-be20561 (origin/main) publish version 0.0.5 (#30)
-23b9087 fix: 11x inference regression from FFI resize loop and spurious stream sync (#29)
+be20561 (origin/main) publish version 0.0.5
+23b9087 fix: 11x inference regression from FFI resize loop and spurious stream sync
 ```
 
-**Commit `d43e31f`** — Incorporated PR #31 + safety/perf rewrite:
-- Complete rewrite of engine.h, engine.cpp, lib.rs merging upstream PR #31's
+**Commit `728440c`** — Incorporated upstream dynamic inputs + safety/perf rewrite:
+- Complete rewrite of engine.h, engine.cpp, lib.rs merging upstream
   per-input heterogeneous dynamic shape support with our CUDA graph, managed
   memory, and Direct I/O optimizations
 - Per-input `InputShapeProfile` from TRT optimization profiles
@@ -44,21 +45,26 @@ be20561 (origin/main) publish version 0.0.5 (#30)
 - `Engine::new_managed()` / `Engine::new_cuda_graph_managed()` in lib.rs
 - Original 3-mode benchmark in saronic_demo_pipeline.rs
 
-### Benchmark Results (2048 iters, Jetson AGX Orin 64GB)
+### Benchmark Results (4,096 iters + 15s sustained, Jetson AGX Orin 64GB)
 
-| Mode | Pipeline µs | Hz | Technique |
+#### Single-Model (YOLOv8n FP16)
+
+| Engine | Stock µs | CUDA Graph µs | Speedup |
 |---|---|---|---|
-| 1. Stock `infer()` | 29,308 | 34 | Baseline |
-| 2. CUDA Graph | 26,536 | 38 | `infer_cuda_graph()` |
-| 3. IO_COHERENCE | 28,640 | 35 | `infer_zerocopy()` via managed mem |
-| 4. IO_COHERENCE + Graph | 25,930 | 39 | Combined |
-| 5. **Direct I/O** | **25,098** | **40** | `write_input_buffer` + `run_cuda_graph` + `read_output_buffer` |
+| YOLOv8n 640 FP16 | 4,094 | 3,872 | **1.06×** |
+| YOLOv8n 320 FP16 | 1,876 | 1,634 | **1.15×** |
 
-Additive breakdown (3-model YOLOv8n FP16 pipeline):
-- CUDA graph dispatch: **−2,772 µs** (66% of savings)
-- IO_COHERENCE memory: **−606 µs** (14%)  
-- Direct I/O buffers: **−832 µs** (20%)
-- **Total: −4,210 µs/frame (1.17×)**
+#### 3-Model Pipeline (det → seg → pose, 15s sustained)
+
+| Mode | Hz | Median µs | P99 µs |
+|---|---:|---:|---:|
+| 1. Stock | 42.5 | 23,527 | 24,212 |
+| 2. CUDA Graph | 45.7 | 21,882 | 22,629 |
+| 3. IO_COHERENCE | 42.9 | 23,330 | 24,238 |
+| 4. IO_COHERENCE + Graph | **46.7** | **21,392** | **21,959** |
+| 5. Direct I/O + Graph | 45.7 | 21,635 | 22,931 |
+
+Production impact: **+4 Hz (42 → 46)**, 2,008 µs/frame freed, P99 tail 6.9% tighter.
 
 ---
 
@@ -107,25 +113,25 @@ Saronic's public libinfer has 3 open issues:
 
 | Issue | Title | What It Means For Us |
 |---|---|---|
-| [#14](https://github.com/saronic-technologies/libinfer/issues/14) | Support CUDA graphs | We already implemented this on our fork. If they ship their own version, we may need to rebase. Watch for conflicts. |
-| [#16](https://github.com/saronic-technologies/libinfer/issues/16) | Implement passing and returning device pointers | We solved this with `write_input_buffer` / `read_output_buffer`. Their approach may differ. |
-| [#15](https://github.com/saronic-technologies/libinfer/issues/15) | Cargo Test and CI | No CI exists upstream. We should add tests to our fork to protect our changes. |
+| upstream CUDA graph issue | Support CUDA graphs | We already implemented this on our fork. If they ship their own version, we may need to rebase. Watch for conflicts. |
+| upstream device-pointer issue | Implement passing and returning device pointers | We solved this with `write_input_buffer` / `read_output_buffer`. Their approach may differ. |
+| upstream CI issue | Cargo Test and CI | No CI exists upstream. We should add tests to our fork to protect our changes. |
 
 **Approved PRs we MUST incorporate** (see Step Zero in §4):
-- [#31](https://github.com/saronic-technologies/libinfer/pull/31) — **Heterogeneously dynamic inputs** (branch: `mpw/heterogeneously_dynamic_inputs`, approved)
-- [#28](https://github.com/saronic-technologies/libinfer/pull/28) — **Better dynamic axes** (branch: `better-dynamic-axes`, approved)
+- upstream dynamic-inputs branch — **Heterogeneously dynamic inputs** (branch: `mpw/heterogeneously_dynamic_inputs`, approved)
+- upstream dynamic-axes branch — **Better dynamic axes** (branch: `better-dynamic-axes`, approved)
 
 Both are approved and will land on `main` soon. We need to pull these into our fork FIRST so our optimizations build on top of their latest code, not alongside it. This avoids painful merge conflicts later and means our CUDA graph / Direct I/O work benefits from their dynamic input improvements.
 
-notes from issue #14:
+notes from the upstream CUDA graph issue:
 
 - "CUDA graphs would be a great optimization to have, but we need to also support dynamic batching, so we will have to cache them."
 
-notes from issue #16:
+notes from the upstream device-pointer issue:
 
 - "In the spirit of this library, we want more code is as reasonable to exist on the Rust side versus the C++ side. To that end, it would greatly enhance flexibility if we could pass device pointers to libinfer in order to execute operations. This will allow chained CUDA operations to be feasible without additional host to device memcpys."
 
-notes from issue #15:
+notes from the upstream CI issue:
 
 - "Testing is a little tricky right now because of the build process, and because it requires a GPU, but it would be great to get these running."
 
@@ -135,18 +141,18 @@ notes from issue #15:
 
 ### ~~Step Zero: Incorporate Saronic's Approved PRs~~ ✅ DONE
 
-PR #31's heterogeneous dynamic input approach has been incorporated into our
+upstream dynamic-inputs's heterogeneous dynamic input approach has been incorporated into our
 rewrite (commit `d43e31f`). The engine core now supports per-input shape
 profiles, TRT shape propagation for output buffer sizing, and independent
-dynamic dimension resolution per input. PR #28's changes are superseded by
-PR #31's approach.
+dynamic dimension resolution per input. upstream dynamic-axes's changes are superseded by
+upstream dynamic-inputs's approach.
 
 #### Branches to fetch
 
 | PR | Branch | What It Adds |
 |---|---|---|
-| [#31](https://github.com/saronic-technologies/libinfer/pull/31) | `mpw/heterogeneously_dynamic_inputs` | Heterogeneously dynamic inputs — each input tensor can have independently dynamic dimensions (not just batch). This changes how `setInputShape()` works and how tensor metadata is stored. |
-| [#28](https://github.com/saronic-technologies/libinfer/pull/28) | `better-dynamic-axes` | Better dynamic axes — improves how optimization profiles handle dynamic dimensions. Changes to engine loading and shape validation. |
+| upstream dynamic-inputs branch | `mpw/heterogeneously_dynamic_inputs` | Heterogeneously dynamic inputs — each input tensor can have independently dynamic dimensions (not just batch). This changes how `setInputShape()` works and how tensor metadata is stored. |
+| upstream dynamic-axes branch | `better-dynamic-axes` | Better dynamic axes — improves how optimization profiles handle dynamic dimensions. Changes to engine loading and shape validation. |
 
 #### Remote setup (ALREADY DONE)
 
@@ -192,9 +198,9 @@ git push origin feat/cuda-graph-replay --force-with-lease
 
 #### Why this matters
 
-1. **Our `write_input_buffer()` / `read_output_buffer()` must handle dynamic shapes.** PR #31 changes how input dimensions are validated — if we don't incorporate it, our Direct I/O path may break on dynamically-shaped models.
-2. **CUDA graph caching for dynamic batches.** Issue #14 explicitly says "we need to also support dynamic batching, so we will have to cache them." PR #31's heterogeneous dynamic inputs is the prerequisite for this. Our `capture_cuda_graph()` currently only handles a single fixed batch size — we'll need to extend it to cache multiple graphs keyed by input shape.
-3. **Issue #16 alignment.** They want device pointers to live on the Rust side. PR #28's better dynamic axes changes the Rust FFI surface. If we build our device pointer APIs without this, the types won't match upstream's direction.
+1. **Our `write_input_buffer()` / `read_output_buffer()` must handle dynamic shapes.** upstream dynamic-inputs changes how input dimensions are validated — if we don't incorporate it, our Direct I/O path may break on dynamically-shaped models.
+2. **CUDA graph caching for dynamic batches.** The upstream CUDA graph issue explicitly says "we need to also support dynamic batching, so we will have to cache them." upstream dynamic-inputs's heterogeneous dynamic inputs is the prerequisite for this. Our `capture_cuda_graph()` currently only handles a single fixed batch size — we'll need to extend it to cache multiple graphs keyed by input shape.
+3. **The upstream device-pointer issue alignment.** They want device pointers to live on the Rust side. upstream dynamic-axes's better dynamic axes changes the Rust FFI surface. If we build our device pointer APIs without this, the types won't match upstream's direction.
 4. **Conflict avoidance.** Both PRs touch `engine.cpp`, `engine.h`, and `lib.rs` — the exact files we modified. Incorporating now (while changes are small) is far easier than rebasing after 10 more commits.
 
 #### After incorporating, verify:
@@ -264,10 +270,10 @@ Pre-computed `mInputIndices` / `mOutputIndices` vectors built during `load()`, e
 - Runs unit tests with mock engine files
 - Regression-tests the Direct I/O path against known-good outputs
 - Tests the nix flake builds
-**Value**: Protects our fork from regressions (upstream had an 11× regression in #29 — we don't want that).
+**Value**: Protects our fork from regressions (upstream had an 11× regression in a previous release — we don't want that).
 
 #### L. Track upstream changes for rebase-readiness
-**What**: Periodically check `saronic-technologies/libinfer` main for new commits (especially PR #31 dynamic inputs). If they land CUDA graph support themselves, our fork will need careful conflict resolution.
+**What**: Periodically check `saronic-technologies/libinfer` main for new commits (especially the heterogeneous dynamic inputs feature). If they land CUDA graph support themselves, our fork will need careful conflict resolution.
 **Action**: `git fetch origin && git log origin/main --oneline` to see what's new.
 
 #### M. Integrate libdebayer into the pipeline
@@ -333,7 +339,7 @@ Every microsecond we save in libinfer is a microsecond available for state estim
 
 | Priority | Task | Estimated Impact | Difficulty |
 |---|---|---|---|
-| **P0** | **Incorporate approved PRs #31 + #28 (Step Zero)** | **Foundation — do first** | **Medium** |
+| **P0** | **Incorporate approved upstream dynamic input branches (Step Zero)** | **Foundation — do first** | **Medium** |
 | **P0** | Fix `getDataTypeSize()` UB (A) | Safety | Trivial |
 | **P0** | Add bounds checking to write/read buffers (B) | Safety | Easy |
 | **P1** | Pre-compute tensor index maps (F) | −100 µs | Medium |
@@ -368,7 +374,7 @@ Every microsecond we save in libinfer is a microsecond available for state estim
 
 ```text
 
-extra context for https://github.com/saronic-technologies/libinfer/pull/28:
+extra context for <!-- upstream dynamic-axes branch -->:
 ------------------------------------------
 Description
 Added support for as many dynamic axes as you want wherever you want. It doesn't just have to be the first dimension of a tensor.
@@ -414,7 +420,7 @@ We are still IO bound on f32 output tensors. Will save that for 0.0.6
 ```
 
 ```text
-extra context for: https://github.com/saronic-technologies/libinfer/pull/31
+extra context for: <!-- upstream dynamic-inputs branch -->
 -------------------------------------
 Adds per-input heterogeneous dynamic shape support; each input tensor now has its own min/opt/max shape profile from TensorRT, replacing the single global batch size. Input buffers allocated per their own max shape; output buffers sized via TensorRT shape propagation after setting all inputs to max. infer() resolves each input's dynamic dimension independently using precomputed metadata (one integer division per dynamic input, zero heap allocations).
 
